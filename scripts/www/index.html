@@ -1,0 +1,2802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>勇里个者 - RPG 堆叠消消乐</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4a7c3f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="勇里个者">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  width: 100vw; height: 100dvh; overflow: hidden;
+  background: url('yang.png') center/cover no-repeat;
+  font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  display: flex; flex-direction: column; align-items: center;
+  user-select: none; -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  padding:
+    env(safe-area-inset-top, 0px)
+    env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px)
+    env(safe-area-inset-left, 0px);
+}
+
+/* ========== 顶部标题栏 ========== */
+.header { margin-top: max(1vh, env(safe-area-inset-top, 4px)); text-align: center; }
+.title {
+  font-size: clamp(15px, 3vw, 26px); font-weight: 900;
+  color: #fff; text-shadow: 2px 2px 0 #4a7c3f, 0 0 20px rgba(0,0,0,0.3);
+  letter-spacing: 1px;
+  padding: 0 4px;
+}
+
+/* ========== 战斗画布容器 ========== */
+.battle-wrap {
+  width: 92%; max-width: 580px; margin-top: max(0.5vh, 2px); position: relative;
+}
+#battleCanvas {
+  display: block; width: 100%; border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  border: 2px solid #8b6914;
+  touch-action: manipulation;
+}
+
+/* ========== 战斗日志 ========== */
+.battle-log-area {
+  width: 92%; max-width: 580px; margin-top: 2px;
+  min-height: clamp(16px, 2.5vh, 22px);
+  display: flex; justify-content: center; align-items: center;
+}
+.battle-log-msg {
+  font-size: clamp(10px, 1.8vw, 12px); font-weight: 700;
+  color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  padding: 2px 12px; border-radius: 10px;
+  background: rgba(0,0,0,0.4); animation: logFade 2.5s ease forwards;
+  white-space: nowrap;
+}
+@keyframes logFade {
+  0% { opacity: 0; transform: translateY(4px); }
+  12% { opacity: 1; transform: translateY(0); }
+  75% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+
+/* ========== 游戏主区域 ========== */
+.game-area {
+  position: relative; flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; width: 100%; max-width: 600px;
+  min-height: 0; /* 允许flex收缩 */
+}
+canvas#gameCanvas {
+  display: block; border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  touch-action: manipulation;
+  max-width: 100%;
+}
+
+/* ========== 收集槽 ========== */
+.collection-bar {
+  display: flex; gap: clamp(3px, 1vw, 6px); padding: clamp(4px, 1vh, 8px) clamp(8px, 2vw, 12px);
+  background: linear-gradient(180deg, #d4a574, #b8834a);
+  border-radius: 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.3),
+    inset 0 2px 0 rgba(255,255,255,0.25);
+  border: 3px solid #8b5a2b; margin-top: max(4px, 0.5vh);
+  flex-wrap: nowrap;
+}
+.slot {
+  width: clamp(38px, 8vw, 46px); height: clamp(42px, 9vw, 52px);
+  min-width: 38px; min-height: 42px;
+  background: rgba(0,0,0,0.25); border-radius: 10px;
+  border: 2px dashed rgba(255,255,255,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: clamp(16px, 4vw, 26px); transition: all 0.25s ease;
+  position: relative;
+  touch-action: manipulation;
+}
+.slot.filled { background: #fff9e6; border: 2px solid #d4a574; }
+.slot.matched { animation: slotMatch 0.4s ease forwards; }
+@keyframes slotMatch {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.7; background: #ffd700; }
+  100% { transform: scale(0); opacity: 0; }
+}
+
+/* ========== 道具按钮 ========== */
+.tools {
+  display: flex; gap: clamp(4px, 1.5vw, 8px); margin-top: max(4px, 0.5vh); margin-bottom: max(0.5vh, env(safe-area-inset-bottom, 4px));
+  flex-wrap: wrap; justify-content: center;
+}
+.tool-btn {
+  padding: clamp(8px, 1.2vh, 6px) clamp(10px, 3vw, 14px);
+  min-height: 38px; min-width: 60px;
+  border-radius: 25px; border: none;
+  font-size: clamp(10px, 2vw, 13px); font-weight: 700;
+  cursor: pointer; transition: all 0.2s; color: #fff;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.2); letter-spacing: 0.5px;
+  touch-action: manipulation;
+  white-space: nowrap;
+}
+.tool-btn:active { transform: scale(0.93); }
+.btn-undo  { background: linear-gradient(135deg, #ff9a56, #ff6b35); }
+.btn-shuffle { background: linear-gradient(135deg, #56b4ff, #3578ff); }
+.btn-reserve { background: linear-gradient(135deg, #a78bfa, #7c3aed); }
+.tool-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.tool-count { font-size: 10px; opacity: 0.85; }
+
+/* ========== 弹窗 ========== */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+  display: none; align-items: center; justify-content: center;
+  z-index: 100; animation: fadeIn 0.3s ease;
+}
+.modal-overlay.show { display: flex; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal-box {
+  background: linear-gradient(180deg, #fff8e7, #fde8c8);
+  border-radius: 20px; padding: 26px 30px; text-align: center;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  border: 4px solid #d4a574; max-width: 330px; width: 85%;
+  animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes popIn { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal-emoji { font-size: 52px; margin-bottom: 6px; }
+.modal-title { font-size: 24px; font-weight: 900; color: #6b3a1f; margin-bottom: 6px; }
+.modal-sub { font-size: 13px; color: #8b5a2b; margin-bottom: 16px; line-height: 1.5; }
+.modal-btn {
+  padding: 10px 34px; border-radius: 30px; border: none;
+  font-size: 16px; font-weight: 700; cursor: pointer;
+  background: linear-gradient(135deg, #ff9a56, #ff6b35);
+  color: #fff; box-shadow: 0 4px 12px rgba(255,107,53,0.4);
+  transition: transform 0.2s;
+}
+.modal-btn:active { transform: scale(0.93); }
+.modal-streak {
+  font-size: 18px; font-weight: 900; color: #f39c12;
+  margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+/* ========== 连胜徽章 ========== */
+.streak-badge {
+  display: none; margin-left: 8px; padding: 2px 10px;
+  background: linear-gradient(135deg, #f39c12, #e74c3c);
+  border-radius: 12px; font-size: clamp(12px, 2vw, 15px);
+  font-weight: 800; color: #fff; vertical-align: middle;
+  box-shadow: 0 2px 6px rgba(231,76,60,0.4);
+  transition: all 0.3s ease;
+}
+.streak-badge.big { animation: streakPop 0.5s ease; }
+@keyframes streakPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.4); }
+  100% { transform: scale(1); }
+}
+
+/* ========== 最高连胜徽章 ========== */
+.max-streak-badge {
+  display: none; margin-left: 4px; padding: 2px 8px;
+  background: linear-gradient(135deg, #c9a84c, #8b6914);
+  border-radius: 12px; font-size: clamp(10px, 1.6vw, 13px);
+  font-weight: 700; color: #fff; vertical-align: middle;
+  box-shadow: 0 2px 6px rgba(139,105,20,0.4);
+  transition: all 0.3s ease;
+}
+
+/* ========== 静音按钮 ========== */
+.mute-btn {
+  display: inline-block; margin-left: 4px; cursor: pointer;
+  font-size: clamp(14px, 2.5vw, 20px); vertical-align: middle;
+  transition: transform 0.2s; user-select: none;
+}
+.mute-btn:hover { transform: scale(1.2); }
+.mute-btn.muted { opacity: 0.5; }
+
+/* ========== 粒子容器 ========== */
+#particles {
+  position: fixed; inset: 0; pointer-events: none; z-index: 50;
+}
+
+/* ========== 手机端适配 ========== */
+
+/* 小屏手机 (≤ 380px 宽) */
+@media (max-width: 380px) {
+  .title { font-size: 13px; letter-spacing: 0.5px; }
+  .streak-badge { font-size: 10px; padding: 1px 6px; margin-left: 3px; }
+  .max-streak-badge { font-size: 8px; padding: 1px 5px; margin-left: 2px; }
+  .mute-btn { font-size: 12px; margin-left: 2px; }
+  .battle-log-msg { font-size: 9px; padding: 1px 8px; }
+  .tool-btn { font-size: 9px; padding: 6px 8px; min-height: 34px; min-width: 50px; }
+  .tool-count { font-size: 8px; }
+  .slot { width: 32px; height: 36px; font-size: 13px; }
+  .collection-bar { gap: 2px; padding: 3px 5px; }
+  .modal-box { padding: 18px 20px; }
+  .modal-emoji { font-size: 38px; }
+  .modal-title { font-size: 18px; }
+  .modal-btn { padding: 8px 24px; font-size: 14px; }
+}
+
+/* 中等手机 (381px~480px) */
+@media (min-width: 381px) and (max-width: 480px) {
+  .title { font-size: 16px; }
+  .battle-log-msg { font-size: 10px; }
+}
+
+/* 平板及以上 (> 768px) - 给更多呼吸空间 */
+@media (min-width: 768px) {
+  .header { margin-top: 2vh; }
+  .battle-wrap { margin-top: 1.5vh; }
+  .battle-log-area { margin-top: 4px; }
+}
+
+/* 横屏手机 - 紧凑布局 */
+@media (max-height: 500px) and (orientation: landscape) {
+  .header { margin-top: 2px; }
+  .title { font-size: 13px; letter-spacing: 1px; }
+  .streak-badge { font-size: 10px; }
+  .max-streak-badge { font-size: 8px; }
+  .mute-btn { font-size: 12px; }
+  .battle-wrap { margin-top: 1px; width: 85%; }
+  .battle-log-area { min-height: 12px; margin-top: 0; }
+  .battle-log-msg { font-size: 9px; padding: 0px 8px; }
+  .collection-bar { margin-top: 2px; padding: 3px 6px; gap: 3px; }
+  .slot { width: 32px; height: 34px; font-size: 13px; }
+  .tools { margin-top: 2px; margin-bottom: 2px; gap: 4px; }
+  .tool-btn { font-size: 9px; padding: 4px 8px; min-height: 30px; min-width: 48px; }
+  .tool-count { font-size: 8px; }
+  .modal-box { padding: 14px 20px; }
+  .modal-emoji { font-size: 32px; margin-bottom: 2px; }
+  .modal-title { font-size: 17px; margin-bottom: 2px; }
+  .modal-sub { font-size: 11px; margin-bottom: 8px; }
+  .modal-btn { padding: 6px 22px; font-size: 13px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header"><h1 class="title">⚔️ 勇 里 个 者 <span class="streak-badge" id="streakBadge">🔥 0</span><span class="max-streak-badge" id="maxStreakBadge">👑 0</span><span class="mute-btn" id="muteBtn" title="音乐开关">🔊</span></h1></div>
+
+<!-- 战斗画布 -->
+<div class="battle-wrap">
+  <canvas id="battleCanvas"></canvas>
+</div>
+
+<!-- 战斗日志 -->
+<div class="battle-log-area" id="battleLogArea"></div>
+
+<!-- 游戏区域 -->
+<div class="game-area">
+  <canvas id="gameCanvas"></canvas>
+  <div class="collection-bar" id="collectionBar"></div>
+  <div class="tools">
+    <button class="tool-btn btn-undo" id="btnUndo" onclick="undo()">
+      ↩ 撤回 <span class="tool-count" id="undoCount">3</span>
+    </button>
+    <button class="tool-btn btn-shuffle" id="btnShuffle" onclick="shuffle()">
+      🔀 洗牌 <span class="tool-count" id="shuffleCount">1</span>
+    </button>
+    <button class="tool-btn btn-reserve" id="btnReserve" onclick="reserve()">
+      📦 暂存 <span class="tool-count" id="reserveCount">1</span>
+    </button>
+  </div>
+</div>
+
+<!-- 弹窗 -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box" id="modalBox"></div>
+</div>
+
+<!-- 粒子层 -->
+<div id="particles"></div>
+
+<script>
+// ==================== 卡牌类型 ====================
+const TILE_TYPES = [
+  { emoji: '⚔️', name: '剑',   color: '#fff', battleType: 'sword' },
+  { emoji: '🪄', name: '法杖', color: '#fff', battleType: 'wand'  },
+  { emoji: '🛡️', name: '盾',   color: '#fff', battleType: 'shield' },
+  { emoji: '❤️', name: '血瓶', color: '#fff', battleType: 'heart'  },
+  { emoji: '💣', name: '炸弹', color: '#fff', battleType: 'bomb'  },
+];
+
+// ==================== Canvas 尺寸 ====================
+const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+// 游戏画布
+const gameCanvas = document.getElementById('gameCanvas');
+const gctx = gameCanvas.getContext('2d');
+let GW, GH, TILE_W, TILE_H;
+
+function isMobile() { return window.innerWidth < 768; }
+function isLandscape() { return window.innerWidth > window.innerHeight && window.innerHeight < 500; }
+
+function resizeGameCanvas() {
+  const vw = Math.min(window.innerWidth * 0.92, 580);
+
+  // 手机端使用更大比例的游戏画布
+  let heightRatio;
+  if (isLandscape()) {
+    heightRatio = 0.48; // 横屏时高度紧张，用较小比例
+  } else if (isMobile()) {
+    heightRatio = 0.42; // 手机竖屏用更大比例
+  } else {
+    heightRatio = 0.34; // 桌面/平板
+  }
+  const vh = Math.min(window.innerHeight * heightRatio, isMobile() ? 400 : 320);
+  GW = vw; GH = vh;
+  gameCanvas.width = GW * dpr; gameCanvas.height = GH * dpr;
+  gameCanvas.style.width = GW + 'px'; gameCanvas.style.height = GH + 'px';
+  gctx.setTransform(1, 0, 0, 1, 0, 0);
+  gctx.scale(dpr, dpr);
+  // 手机端确保最小触摸目标 44px
+  const minTile = isMobile() ? 44 : 44;
+  TILE_W = Math.max(GW / 9, minTile); TILE_H = TILE_W * 1.15;
+}
+resizeGameCanvas();
+window.addEventListener('resize', () => {
+  resizeGameCanvas();
+  resizeBattleCanvas();
+  setCharPositions();
+  if (gameState === 'playing') renderCards();
+});
+
+// 战斗画布
+const battleCanvas = document.getElementById('battleCanvas');
+const bctx = battleCanvas.getContext('2d');
+let BW, BH;
+
+function resizeBattleCanvas() {
+  BW = Math.min(window.innerWidth * 0.92, 580);
+  const bHeightRatio = isLandscape() ? 0.22 : (isMobile() ? 0.17 : 0.19);
+  BH = Math.min(window.innerHeight * bHeightRatio, isMobile() ? 140 : 150);
+  battleCanvas.width = BW * dpr; battleCanvas.height = BH * dpr;
+  battleCanvas.style.width = BW + 'px'; battleCanvas.style.height = BH + 'px';
+  bctx.setTransform(1, 0, 0, 1, 0, 0);
+  bctx.scale(dpr, dpr);
+}
+resizeBattleCanvas();
+
+// ==================== 战斗数值 ====================
+const HERO_BASE  = { hp: 50, maxHp: 50, shield: 0, atk: 5 };
+
+const MONSTER_TYPES = [
+  { id: 'demon',  name: '紫翼恶魔',   hp: 100, maxHp: 100, shield: 50, atk: 4 },
+  { id: 'golem',  name: '岩石巨人',   hp: 60,  maxHp: 60,  shield: 20, atk: 8 },
+  { id: 'lizard', name: '烈焰蜥蜴',   hp: 70,  maxHp: 70,  shield: 10, atk: 9 },
+  { id: 'banshee',name: '冰霜女妖',   hp: 55,  maxHp: 55,  shield: 40, atk: 5 },
+  { id: 'slime',  name: '暗影史莱姆', hp: 120, maxHp: 120, shield: 10, atk: 2 },
+];
+
+let currentMonsterType = MONSTER_TYPES[0];
+let hero = { ...HERO_BASE };
+let monster = { ...MONSTER_TYPES[0] };
+let battleOver = false;
+let monsterIntent = null; // { name, value, desc }
+
+// ==================== 游戏状态 ====================
+let tiles = [];
+let collection = [];
+let undoStack = [];
+let undoRemaining = 3;
+let shuffleRemaining = 1;
+let reserveRemaining = 1;
+let gameState = 'idle';
+let winStreak = 0;
+let maxWinStreak = parseInt(localStorage.getItem('maxWinStreak') || '0');
+let hoveredTileId = null;
+let animating = false;
+let pendingBattleType = null;
+
+// ==================== 战斗动画系统 ====================
+
+// 人物状态
+const heroState  = { x: 0, y: 0, baseX: 0, baseY: 0, state: 'idle',  animStart: 0, animDuration: 0, flashTimer: 0 };
+const monState   = { x: 0, y: 0, baseX: 0, baseY: 0, state: 'idle',  animStart: 0, animDuration: 0, flashTimer: 0 };
+
+// 战斗特效池
+let battleEffects = [];
+// { type, x, y, age, maxAge, angle, color, extra }
+
+// 浮动信息（来自游戏逻辑触发）
+let pendingFloatTexts = []; // { x, y, text, cls }
+
+function setCharPositions() {
+  heroState.baseX = BW * 0.22;
+  heroState.baseY = BH * 0.58;
+  heroState.x = heroState.baseX;
+  heroState.y = heroState.baseY;
+
+  monState.baseX = BW * 0.78;
+  monState.baseY = BH * 0.58;
+  monState.x = monState.baseX;
+  monState.y = monState.baseY;
+}
+resizeBattleCanvas();
+setCharPositions();
+
+function startHeroAnim(state, dur) {
+  heroState.state = state;
+  heroState.animStart = performance.now();
+  heroState.animDuration = dur || 500;
+}
+function startMonAnim(state, dur) {
+  monState.state = state;
+  monState.animStart = performance.now();
+  monState.animDuration = dur || 500;
+}
+function animProgress(st) {
+  if (st.animDuration <= 0) return 1;
+  const p = (performance.now() - st.animStart) / st.animDuration;
+  return Math.min(1, Math.max(0, p));
+}
+
+// ==================== 人物绘制 ====================
+
+/** 绘制英雄骑士 */
+function drawHero(ctx, x, y, progress, state, flashAlpha) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  // ── 动画偏移 ──
+  let bodyY = 0, bodyX = 0, swordRot = 0, bodyScaleX = 1, bodyScaleY = 1;
+  const eyeMode = 'normal';
+
+  switch (state) {
+    case 'idle':
+      bodyY = Math.sin(performance.now() * 0.003) * 3;
+      bodyScaleY = 1 + Math.sin(performance.now() * 0.004) * 0.03;
+      break;
+    case 'attack':
+      if (progress < 0.4) {
+        bodyX = progress / 0.4 * 35;
+        swordRot = (progress / 0.4) * (-2.0);
+        bodyScaleX = 1 + progress / 0.4 * 0.1;
+      } else if (progress < 0.7) {
+        bodyX = 35 - (progress - 0.4) / 0.3 * 35;
+        swordRot = -2.0 + (progress - 0.4) / 0.3 * 0.5;
+        bodyScaleX = 1.1 - (progress - 0.4) / 0.3 * 0.05;
+      } else {
+        bodyX = (1 - progress) / 0.3 * 0;
+        swordRot = (1 - progress) / 0.3 * (-0.5);
+      }
+      break;
+    case 'cast':
+      bodyY = -Math.sin(progress * Math.PI) * 10;
+      bodyScaleY = 1 + Math.sin(progress * Math.PI) * 0.08;
+      break;
+    case 'hit':
+      bodyX = Math.sin(progress * Math.PI * 4) * 6 * (1 - progress);
+      bodyY = -progress * 3;
+      break;
+    case 'heal':
+      bodyY = -progress * 8;
+      break;
+    case 'buff':
+      bodyScaleX = 1 + Math.sin(progress * Math.PI) * 0.06;
+      bodyScaleY = 1 + Math.sin(progress * Math.PI) * 0.06;
+      break;
+    case 'victory':
+      bodyY = -Math.abs(Math.sin(progress * Math.PI * 3)) * 15;
+      break;
+    case 'defeat':
+      bodyY = progress * 30;
+      bodyX = -progress * 8;
+      break;
+  }
+
+  if (flashAlpha > 0) ctx.globalAlpha = 0.5 + flashAlpha * 0.5;
+
+  const s = 1.0;
+
+  // ── 身体 ──
+  ctx.save();
+  ctx.translate(bodyX, bodyY);
+  ctx.scale(bodyScaleX, bodyScaleY);
+
+  // 身体主体（蓝甲）
+  ctx.fillStyle = '#5B9BD5';
+  ctx.beginPath();
+  ctx.roundRect(-11 * s, -2 * s, 22 * s, 24 * s, 6);
+  ctx.fill();
+  ctx.strokeStyle = '#3A7CC3';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // 盔甲装饰线
+  ctx.strokeStyle = '#8BC4F7';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-7 * s, 8 * s); ctx.lineTo(7 * s, 8 * s); ctx.stroke();
+
+  // 腰带
+  ctx.fillStyle = '#8B6914';
+  ctx.fillRect(-11 * s, 14 * s, 22 * s, 3.5 * s);
+  ctx.fillStyle = '#FFD700';
+  ctx.fillRect(-2 * s, 13 * s, 4 * s, 5 * s);
+
+  // ── 双腿 ──
+  ctx.fillStyle = '#4A5568';
+  ctx.fillRect(-7 * s, 21 * s, 6 * s, 10 * s);
+  ctx.fillRect(1 * s, 21 * s, 6 * s, 10 * s);
+  // 靴子
+  ctx.fillStyle = '#8B4513';
+  ctx.fillRect(-8 * s, 28 * s, 8 * s, 4 * s);
+  ctx.fillRect(-0 * s, 28 * s, 8 * s, 4 * s);
+
+  // ── 左臂（持盾） ──
+  ctx.fillStyle = '#5B9BD5';
+  ctx.beginPath(); ctx.roundRect(-16 * s, 1 * s, 6 * s, 15 * s, 3); ctx.fill();
+
+  // 盾牌
+  ctx.fillStyle = '#C0C0C0';
+  ctx.beginPath(); ctx.arc(-15 * s, -2 * s, 10 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#5B9BD5';
+  ctx.beginPath(); ctx.arc(-15 * s, -2 * s, 5 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#FFD700';
+  ctx.beginPath(); ctx.arc(-15 * s, -2 * s, 3 * s, 0, Math.PI * 2); ctx.fill();
+
+  // ── 右臂（持剑） ──
+  ctx.fillStyle = '#5B9BD5';
+  ctx.save();
+  ctx.translate(12 * s, -1 * s);
+  ctx.rotate(swordRot);
+  ctx.beginPath(); ctx.roundRect(2 * s, -1 * s, 5 * s, 14 * s, 2); ctx.fill();
+  // 剑
+  ctx.fillStyle = '#C0C0C0';
+  ctx.fillRect(2 * s, -24 * s, 4 * s, 24 * s);
+  ctx.fillStyle = '#FFD700';
+  ctx.beginPath(); ctx.arc(4 * s, -24 * s, 3 * s, 0, Math.PI * 2); ctx.fill();
+  // 剑柄
+  ctx.fillStyle = '#8B4513';
+  ctx.fillRect(1 * s, -2 * s, 7 * s, 4 * s);
+  // 护手
+  ctx.fillStyle = '#FFD700';
+  ctx.fillRect(-1 * s, -2 * s, 10 * s, 2 * s);
+  ctx.restore();
+
+  // ── 头部 ──
+  // 脖子
+  ctx.fillStyle = '#FFD5B8';
+  ctx.fillRect(-3 * s, -7 * s, 6 * s, 6 * s);
+
+  // 脸
+  ctx.fillStyle = '#FFD5B8';
+  ctx.beginPath(); ctx.arc(0, -17 * s, 14 * s, 0, Math.PI * 2); ctx.fill();
+
+  // 头盔
+  ctx.fillStyle = '#A0A0A0';
+  ctx.beginPath();
+  ctx.arc(0, -17 * s, 15 * s, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#707070';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // 头盔装饰
+  ctx.fillStyle = '#FFD700';
+  ctx.fillRect(-3 * s, -33 * s, 6 * s, 8 * s);
+  ctx.beginPath(); ctx.arc(0, -34 * s, 5 * s, 0, Math.PI * 2); ctx.fill();
+
+  // 眼睛
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-5 * s, -19 * s, 5 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(5 * s, -19 * s, 5 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1a1a2e';
+  ctx.beginPath(); ctx.arc(-5 * s, -19 * s, 2.5 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(5 * s, -19 * s, 2.5 * s, 0, Math.PI * 2); ctx.fill();
+  // 高光
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-4 * s, -20 * s, 1 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(6 * s, -20 * s, 1 * s, 0, Math.PI * 2); ctx.fill();
+
+  // 嘴
+  ctx.strokeStyle = '#c97d5b';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(0, -12 * s, 3 * s, 0.1, Math.PI - 0.1);
+  ctx.stroke();
+
+  // 脸颊红晕
+  ctx.fillStyle = 'rgba(255,150,150,0.3)';
+  ctx.beginPath(); ctx.arc(-8 * s, -14 * s, 3 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(8 * s, -14 * s, 3 * s, 0, Math.PI * 2); ctx.fill();
+
+  ctx.restore(); // body transform
+  ctx.restore(); // main transform
+}
+
+/** 绘制魔物 */
+function drawDemonMonster(ctx, x, y, progress, state, flashAlpha) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  let bodyY = 0, bodyX = 0, bodyScaleX = 1, bodyScaleY = 1;
+  let armExtend = 0;
+
+  switch (state) {
+    case 'idle':
+      bodyY = Math.sin(performance.now() * 0.0035 + 1) * 3;
+      bodyScaleY = 1 + Math.sin(performance.now() * 0.0045 + 1) * 0.03;
+      break;
+    case 'attack':
+      if (progress < 0.35) {
+        bodyX = -(progress / 0.35) * 30;
+        armExtend = (progress / 0.35);
+        bodyScaleX = 1 + progress / 0.35 * 0.08;
+      } else if (progress < 0.65) {
+        bodyX = -30 + (progress - 0.35) / 0.3 * 30;
+        armExtend = 1 - (progress - 0.35) / 0.3;
+      } else {
+        bodyX = 0;
+        armExtend = 0;
+      }
+      break;
+    case 'cast':
+      bodyY = -Math.sin(progress * Math.PI) * 8;
+      bodyScaleY = 1 + Math.sin(progress * Math.PI) * 0.06;
+      break;
+    case 'hit':
+      bodyX = Math.sin(progress * Math.PI * 5) * 5 * (1 - progress);
+      bodyY = -progress * 4;
+      break;
+    case 'heal':
+      bodyY = -progress * 6;
+      break;
+    case 'buff':
+      bodyScaleX = 1 + Math.sin(progress * Math.PI) * 0.07;
+      bodyScaleY = 1 + Math.sin(progress * Math.PI) * 0.07;
+      break;
+    case 'victory':
+      bodyY = -Math.abs(Math.sin(progress * Math.PI * 3 + 0.5)) * 12;
+      break;
+    case 'defeat':
+      bodyY = progress * 25;
+      bodyX = progress * 6;
+      break;
+  }
+
+  if (flashAlpha > 0) ctx.globalAlpha = 0.5 + flashAlpha * 0.5;
+
+  const s = 1.0;
+
+  ctx.save();
+  ctx.translate(bodyX, bodyY);
+  ctx.scale(bodyScaleX, bodyScaleY);
+
+  // ── 尾巴 ──
+  ctx.strokeStyle = '#7D3C98';
+  ctx.lineWidth = 4 * s;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-4 * s, 18 * s);
+  ctx.quadraticCurveTo(-18 * s, 20 * s, -14 * s, 28 * s);
+  ctx.stroke();
+  // 尾巴尖
+  ctx.fillStyle = '#E74C3C';
+  ctx.beginPath();
+  ctx.moveTo(-16 * s, 28 * s);
+  ctx.lineTo(-10 * s, 26 * s);
+  ctx.lineTo(-14 * s, 24 * s);
+  ctx.fill();
+
+  // ── 翅膀 ──
+  ctx.fillStyle = '#6C3483';
+  ctx.beginPath();
+  ctx.moveTo(-6 * s, -2 * s);
+  ctx.quadraticCurveTo(-18 * s, -16 * s, -10 * s, -8 * s);
+  ctx.quadraticCurveTo(-22 * s, -24 * s, -8 * s, -14 * s);
+  ctx.quadraticCurveTo(-6 * s, -20 * s, -4 * s, -4 * s);
+  ctx.fill();
+
+  // ── 身体 ──
+  ctx.fillStyle = '#9B59B6';
+  ctx.beginPath();
+  ctx.roundRect(-14 * s, -1 * s, 28 * s, 26 * s, 10);
+  ctx.fill();
+  ctx.strokeStyle = '#7D3C98';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // 肚皮
+  ctx.fillStyle = '#D2B4DE';
+  ctx.beginPath();
+  ctx.ellipse(0, 10 * s, 8 * s, 10 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ── 短腿 ──
+  ctx.fillStyle = '#7D3C98';
+  ctx.fillRect(-8 * s, 23 * s, 7 * s, 8 * s);
+  ctx.fillRect(1 * s, 23 * s, 7 * s, 8 * s);
+  // 脚
+  ctx.fillStyle = '#6C3483';
+  ctx.beginPath(); ctx.ellipse(-5 * s, 32 * s, 6 * s, 3.5 * s, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(5 * s, 32 * s, 6 * s, 3.5 * s, 0, 0, Math.PI * 2); ctx.fill();
+
+  // ── 左臂 ──
+  ctx.fillStyle = '#9B59B6';
+  ctx.beginPath(); ctx.roundRect(-22 * s, 2 * s, 9 * s, 14 * s, 4); ctx.fill();
+  // 爪子
+  ctx.fillStyle = '#E74C3C';
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath(); ctx.arc(-24 * s + i * 2 * s, 2 * s, 2.5 * s, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ── 右臂（攻击延伸） ──
+  ctx.fillStyle = '#9B59B6';
+  ctx.save();
+  ctx.translate(14 * s, 2 * s);
+  ctx.scale(1 + armExtend * 0.5, 1);
+  ctx.beginPath(); ctx.roundRect(0, 0, 9 * s, 14 * s, 4); ctx.fill();
+  // 爪子
+  ctx.fillStyle = '#E74C3C';
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath(); ctx.arc(10 * s - i * 2 * s, 0, 2.5 * s, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+
+  // ── 头部 ──
+  ctx.fillStyle = '#9B59B6';
+  ctx.beginPath(); ctx.arc(0, -16 * s, 16 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#7D3C98';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // 耳朵/角
+  ctx.fillStyle = '#F5F0E8';
+  ctx.beginPath();
+  ctx.moveTo(-10 * s, -28 * s);
+  ctx.lineTo(-13 * s, -38 * s);
+  ctx.lineTo(-5 * s, -27 * s);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(10 * s, -28 * s);
+  ctx.lineTo(13 * s, -38 * s);
+  ctx.lineTo(5 * s, -27 * s);
+  ctx.fill();
+
+  // 眼睛
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-6 * s, -18 * s, 7 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(6 * s, -18 * s, 7 * s, 0, Math.PI * 2); ctx.fill();
+  // 瞳孔
+  ctx.fillStyle = '#FFD700';
+  ctx.beginPath(); ctx.arc(-6 * s, -17 * s, 4 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(6 * s, -17 * s, 4 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1a1a2e';
+  ctx.beginPath(); ctx.arc(-6 * s, -17 * s, 2 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(6 * s, -17 * s, 2 * s, 0, Math.PI * 2); ctx.fill();
+  // 高光
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-5 * s, -18 * s, 1.2 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(7 * s, -18 * s, 1.2 * s, 0, Math.PI * 2); ctx.fill();
+
+  // 嘴
+  ctx.fillStyle = '#4A235A';
+  ctx.beginPath();
+  ctx.arc(0, -9 * s, 6 * s, 0.1, Math.PI - 0.1);
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1;
+  // 小牙
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.moveTo(-3 * s, -11 * s);
+  ctx.lineTo(-1.5 * s, -7 * s);
+  ctx.lineTo(0, -11 * s);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(0, -11 * s);
+  ctx.lineTo(1.5 * s, -7 * s);
+  ctx.lineTo(3 * s, -11 * s);
+  ctx.fill();
+
+  // 脸颊
+  ctx.fillStyle = 'rgba(200,100,200,0.3)';
+  ctx.beginPath(); ctx.arc(-10 * s, -11 * s, 3.5 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(10 * s, -11 * s, 3.5 * s, 0, Math.PI * 2); ctx.fill();
+
+  ctx.restore(); // body transform
+  ctx.restore(); // main transform
+}
+
+// ── 岩石巨人 (HP60/ATK8/盾20) ──
+function drawGolemMonster(ctx, x, y, progress, state, flashAlpha) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  let bodyY = 0, bodyX = 0, bodyScaleX = 1, bodyScaleY = 1;
+  let armExtend = 0;
+
+  switch (state) {
+    case 'idle':
+      bodyY = Math.sin(performance.now() * 0.003 + 2) * 2;
+      bodyScaleY = 1 + Math.sin(performance.now() * 0.004 + 2) * 0.02;
+      break;
+    case 'attack':
+      if (progress < 0.3) {
+        bodyX = -(progress / 0.3) * 24;
+        armExtend = (progress / 0.3);
+        bodyScaleX = 1 + progress / 0.3 * 0.06;
+      } else if (progress < 0.6) {
+        bodyX = -24 + (progress - 0.3) / 0.3 * 24;
+        armExtend = 1 - (progress - 0.3) / 0.3;
+      } else { bodyX = 0; armExtend = 0; }
+      break;
+    case 'cast':
+      bodyY = -Math.sin(progress * Math.PI) * 6;
+      bodyScaleY = 1 + Math.sin(progress * Math.PI) * 0.04;
+      break;
+    case 'hit':
+      bodyX = Math.sin(progress * Math.PI * 4) * 4 * (1 - progress);
+      bodyY = -progress * 3;
+      break;
+    case 'heal':
+      bodyY = -progress * 4;
+      break;
+    case 'buff':
+      bodyScaleX = 1 + Math.sin(progress * Math.PI) * 0.05;
+      bodyScaleY = 1 + Math.sin(progress * Math.PI) * 0.05;
+      break;
+    case 'victory':
+      bodyY = -Math.abs(Math.sin(progress * Math.PI * 2.5 + 0.5)) * 8;
+      break;
+    case 'defeat':
+      bodyY = progress * 20;
+      bodyX = progress * 4;
+      break;
+  }
+
+  if (flashAlpha > 0) ctx.globalAlpha = 0.5 + flashAlpha * 0.5;
+
+  const s = 1.0;
+
+  ctx.save();
+  ctx.translate(bodyX, bodyY);
+  ctx.scale(bodyScaleX, bodyScaleY);
+
+  // ── 腿部 ──
+  ctx.fillStyle = '#5D6D7E';
+  ctx.fillRect(-9 * s, 20 * s, 8 * s, 10 * s);
+  ctx.fillRect(1 * s, 20 * s, 8 * s, 10 * s);
+  // 脚
+  ctx.fillStyle = '#4A5568';
+  ctx.fillRect(-10 * s, 29 * s, 10 * s, 5 * s);
+  ctx.fillRect(1 * s, 29 * s, 10 * s, 5 * s);
+
+  // ── 身体（梯形） ──
+  const bodyGrad = ctx.createLinearGradient(0, -6 * s, 0, 22 * s);
+  bodyGrad.addColorStop(0, '#95A5A6');
+  bodyGrad.addColorStop(0.5, '#7F8C8D');
+  bodyGrad.addColorStop(1, '#5D6D7E');
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.moveTo(-14 * s, 0);
+  ctx.lineTo(-12 * s, 22 * s);
+  ctx.lineTo(12 * s, 22 * s);
+  ctx.lineTo(14 * s, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#4A5568';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 身体裂缝纹理
+  ctx.strokeStyle = '#566573';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-8 * s, 4 * s); ctx.lineTo(-4 * s, 8 * s); ctx.lineTo(-6 * s, 10 * s); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(4 * s, 6 * s); ctx.lineTo(7 * s, 10 * s); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-2 * s, 14 * s); ctx.lineTo(2 * s, 18 * s); ctx.lineTo(-1 * s, 20 * s); ctx.stroke();
+
+  // 腹部核心（发光宝石）
+  ctx.fillStyle = '#F39C12';
+  ctx.beginPath(); ctx.arc(0, 12 * s, 4 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#F1C40F';
+  ctx.beginPath(); ctx.arc(0, 12 * s, 2 * s, 0, Math.PI * 2); ctx.fill();
+
+  // ── 左臂 ──
+  ctx.fillStyle = '#7F8C8D';
+  ctx.beginPath();
+  ctx.moveTo(-14 * s, 2 * s);
+  ctx.lineTo(-24 * s, 6 * s);
+  ctx.lineTo(-24 * s, 16 * s);
+  ctx.lineTo(-14 * s, 14 * s);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#4A5568'; ctx.lineWidth = 1.5; ctx.stroke();
+  // 拳头
+  ctx.fillStyle = '#5D6D7E';
+  ctx.beginPath(); ctx.arc(-24 * s, 11 * s, 5 * s, 0, Math.PI * 2); ctx.fill();
+
+  // ── 右臂（攻击延伸） ──
+  ctx.save();
+  ctx.translate(14 * s, 2 * s);
+  ctx.scale(1 + armExtend * 0.4, 1);
+  ctx.fillStyle = '#7F8C8D';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(10 * s, 4 * s);
+  ctx.lineTo(10 * s, 14 * s);
+  ctx.lineTo(0, 12 * s);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#4A5568'; ctx.lineWidth = 1.5; ctx.stroke();
+  // 拳头
+  ctx.fillStyle = '#5D6D7E';
+  ctx.beginPath(); ctx.arc(10 * s, 9 * s, 5 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // ── 头部（六边形） ──
+  ctx.fillStyle = '#7F8C8D';
+  ctx.beginPath();
+  ctx.moveTo(-14 * s, -18 * s);
+  ctx.lineTo(-16 * s, -6 * s);
+  ctx.lineTo(16 * s, -6 * s);
+  ctx.lineTo(14 * s, -18 * s);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#4A5568'; ctx.lineWidth = 2; ctx.stroke();
+
+  // 头顶棱角
+  ctx.fillStyle = '#6C7A89';
+  ctx.beginPath(); ctx.moveTo(-10 * s, -18 * s); ctx.lineTo(-8 * s, -26 * s); ctx.lineTo(-2 * s, -18 * s); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(10 * s, -18 * s); ctx.lineTo(8 * s, -26 * s); ctx.lineTo(2 * s, -18 * s); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-1 * s, -18 * s); ctx.lineTo(0, -23 * s); ctx.lineTo(1 * s, -18 * s); ctx.fill();
+
+  // 眼睛（发光橙黄）
+  ctx.fillStyle = '#F39C12';
+  ctx.beginPath(); ctx.arc(-5 * s, -13 * s, 3.5 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(5 * s, -13 * s, 3.5 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#FFF';
+  ctx.beginPath(); ctx.arc(-5 * s, -13 * s, 1.5 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(5 * s, -13 * s, 1.5 * s, 0, Math.PI * 2); ctx.fill();
+
+  // 嘴（锯齿裂缝）
+  ctx.strokeStyle = '#4A5568';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-4 * s, -6 * s);
+  ctx.lineTo(-2 * s, -5 * s);
+  ctx.lineTo(0, -6 * s);
+  ctx.lineTo(2 * s, -5 * s);
+  ctx.lineTo(4 * s, -6 * s);
+  ctx.stroke();
+
+  // 肩部突起
+  ctx.fillStyle = '#6C7A89';
+  ctx.beginPath(); ctx.moveTo(-14 * s, 0); ctx.lineTo(-18 * s, 0); ctx.lineTo(-14 * s, 4 * s); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(14 * s, 0); ctx.lineTo(18 * s, 0); ctx.lineTo(14 * s, 4 * s); ctx.fill();
+
+  ctx.restore(); // body transform
+  ctx.restore(); // main transform
+}
+
+// ── 烈焰蜥蜴 (HP70/ATK9/盾10) ──
+function drawLizardMonster(ctx, x, y, progress, state, flashAlpha) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  let bodyY = 0, bodyX = 0, bodyScaleX = 1, bodyScaleY = 1;
+  let flameHeight = 0, jawOpen = 0;
+
+  switch (state) {
+    case 'idle':
+      bodyY = Math.sin(performance.now() * 0.004 + 1) * 2;
+      bodyScaleY = 1 + Math.sin(performance.now() * 0.005 + 1) * 0.03;
+      flameHeight = Math.sin(performance.now() * 0.008) * 3 + 5;
+      break;
+    case 'attack':
+      if (progress < 0.3) {
+        bodyX = (progress / 0.3) * 28;
+        bodyScaleX = 1 + progress / 0.3 * 0.12;
+        jawOpen = (progress / 0.3);
+        flameHeight = progress / 0.3 * 30;
+      } else if (progress < 0.6) {
+        bodyX = 28;
+        jawOpen = 1;
+        flameHeight = 30 - (progress - 0.3) / 0.3 * 30;
+      } else {
+        bodyX = 28 * (1 - (progress - 0.6) / 0.4);
+        jawOpen = 1 - (progress - 0.6) / 0.4;
+      }
+      break;
+    case 'cast':
+      bodyY = -Math.sin(progress * Math.PI) * 8;
+      bodyScaleY = 1 + Math.sin(progress * Math.PI) * 0.06;
+      break;
+    case 'hit':
+      bodyX = Math.sin(progress * Math.PI * 5) * 5 * (1 - progress);
+      bodyY = -progress * 4;
+      break;
+    case 'heal':
+      bodyY = -progress * 5;
+      break;
+    case 'buff':
+      bodyScaleX = 1 + Math.sin(progress * Math.PI) * 0.08;
+      bodyScaleY = 1 + Math.sin(progress * Math.PI) * 0.08;
+      break;
+    case 'victory':
+      bodyY = -Math.abs(Math.sin(progress * Math.PI * 3)) * 10;
+      break;
+    case 'defeat':
+      bodyY = progress * 18;
+      bodyX = progress * 5;
+      break;
+  }
+
+  if (flashAlpha > 0) ctx.globalAlpha = 0.5 + flashAlpha * 0.5;
+
+  const s = 1.0;
+
+  ctx.save();
+  ctx.translate(bodyX, bodyY);
+  ctx.scale(bodyScaleX, bodyScaleY);
+
+  // ── 尾巴 ──
+  ctx.fillStyle = '#C0392B';
+  ctx.beginPath();
+  ctx.moveTo(-14 * s, 16 * s);
+  ctx.quadraticCurveTo(-26 * s, 28 * s, -20 * s, 34 * s);
+  ctx.lineTo(-18 * s, 32 * s);
+  ctx.quadraticCurveTo(-22 * s, 26 * s, -13 * s, 16 * s);
+  ctx.fill();
+  // 尾巴火焰
+  const t = performance.now() * 0.005;
+  const gradTail = ctx.createLinearGradient(-20 * s, 34 * s, -20 * s, 26 * s);
+  gradTail.addColorStop(0, '#FF4500');
+  gradTail.addColorStop(0.5, '#FFD700');
+  gradTail.addColorStop(1, 'rgba(255,100,0,0)');
+  ctx.fillStyle = gradTail;
+  ctx.beginPath();
+  ctx.moveTo(-22 * s, 34 * s);
+  ctx.quadraticCurveTo(-18 * s, 38 * s + Math.sin(t) * 2, -16 * s, 34 * s);
+  ctx.fill();
+
+  // ── 后腿 ──
+  ctx.fillStyle = '#922B21';
+  ctx.fillRect(-9 * s, 20 * s, 7 * s, 9 * s);
+  ctx.fillStyle = '#C0392B';
+  ctx.fillRect(2 * s, 20 * s, 7 * s, 9 * s);
+  // 爪子
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath(); ctx.arc(-7 * s, 30 * s, 4 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(4 * s, 30 * s, 4 * s, 0, Math.PI * 2); ctx.fill();
+
+  // ── 身体 ──
+  const bodyGrad = ctx.createLinearGradient(0, 0, 0, 22 * s);
+  bodyGrad.addColorStop(0, '#E74C3C');
+  bodyGrad.addColorStop(0.4, '#C0392B');
+  bodyGrad.addColorStop(1, '#922B21');
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.ellipse(0, 10 * s, 16 * s, 22 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#7B241C';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 腹部鳞片
+  ctx.fillStyle = '#F5B041';
+  ctx.beginPath();
+  ctx.ellipse(0, 14 * s, 9 * s, 12 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 身体纹路
+  ctx.strokeStyle = '#7B241C';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 4; i++) {
+    const yy = -2 * s + i * 5 * s;
+    ctx.beginPath();
+    ctx.arc(0, yy, 12 * s - i * 1.5 * s, Math.PI * 0.3, Math.PI * 0.7);
+    ctx.stroke();
+  }
+
+  // ── 左前臂 ──
+  ctx.fillStyle = '#C0392B';
+  ctx.beginPath();
+  ctx.roundRect(-20 * s, 4 * s, 8 * s, 12 * s, 4);
+  ctx.fill();
+  // 爪子
+  ctx.fillStyle = '#1a1a1a';
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath(); ctx.arc(-22 * s + i * 3 * s, 4 * s, 2 * s, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ── 右前臂（攻击延伸 + 火焰） ──
+  ctx.save();
+  ctx.translate(14 * s, 4 * s);
+  ctx.scale(1 + jawOpen * 0.3, 1);
+  ctx.fillStyle = '#C0392B';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, 8 * s, 12 * s, 4);
+  ctx.fill();
+  // 爪子
+  ctx.fillStyle = '#1a1a1a';
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath(); ctx.arc(8 * s + i * 3 * s, 2 * s, 2 * s, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+
+  // ── 颈部 ──
+  ctx.fillStyle = '#E74C3C';
+  ctx.beginPath();
+  ctx.moveTo(-8 * s, -4 * s);
+  ctx.lineTo(-7 * s, -12 * s);
+  ctx.lineTo(7 * s, -12 * s);
+  ctx.lineTo(8 * s, -4 * s);
+  ctx.fill();
+
+  // ── 头部 ──
+  ctx.save();
+  ctx.translate(6 * s * jawOpen, 0);
+  ctx.fillStyle = '#E74C3C';
+  ctx.beginPath();
+  ctx.ellipse(0, -22 * s, 14 * s, 12 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#7B241C';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+
+  // 角
+  ctx.fillStyle = '#F39C12';
+  ctx.beginPath();
+  ctx.moveTo(-6 * s, -34 * s);
+  ctx.lineTo(-8 * s, -44 * s);
+  ctx.lineTo(-2 * s, -32 * s);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(6 * s, -34 * s);
+  ctx.lineTo(8 * s, -44 * s);
+  ctx.lineTo(2 * s, -32 * s);
+  ctx.fill();
+
+  // 眼睛
+  ctx.fillStyle = '#FFD700';
+  ctx.beginPath(); ctx.ellipse(-6 * s, -22 * s, 5 * s, 5.5 * s, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(6 * s, -22 * s, 5 * s, 5.5 * s, 0, 0, Math.PI * 2); ctx.fill();
+  // 竖瞳
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath(); ctx.ellipse(-6 * s, -22 * s, 1.8 * s, 4.5 * s, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(6 * s, -22 * s, 1.8 * s, 4.5 * s, 0, 0, Math.PI * 2); ctx.fill();
+
+  // 嘴部（攻击时张开喷火）
+  if (jawOpen > 0.1) {
+    ctx.fillStyle = '#7B241C';
+    ctx.beginPath();
+    ctx.ellipse(0 + 6 * s * jawOpen, -14 * s, 7 * s * jawOpen, 4 * s * jawOpen, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 火焰
+    if (flameHeight > 2) {
+      const gradFlame = ctx.createLinearGradient(0 + 6 * s * jawOpen, -14 * s, 0 + 6 * s * jawOpen, -14 * s - flameHeight);
+      gradFlame.addColorStop(0, '#fff');
+      gradFlame.addColorStop(0.2, '#FFD700');
+      gradFlame.addColorStop(0.6, '#FF4500');
+      gradFlame.addColorStop(1, 'rgba(255,0,0,0)');
+      ctx.fillStyle = gradFlame;
+      ctx.beginPath();
+      ctx.moveTo(0 + 6 * s * jawOpen - 5 * s, -14 * s);
+      ctx.quadraticCurveTo(0 + 6 * s * jawOpen + 2 * s, -14 * s - flameHeight * 0.7, 0 + 6 * s * jawOpen - 2 * s, -14 * s - flameHeight);
+      ctx.quadraticCurveTo(0 + 6 * s * jawOpen, -14 * s - flameHeight * 0.5, 0 + 6 * s * jawOpen + 3 * s, -14 * s - flameHeight);
+      ctx.quadraticCurveTo(0 + 6 * s * jawOpen + 5 * s, -14 * s - flameHeight * 0.6, 0 + 6 * s * jawOpen + 5 * s, -14 * s);
+      ctx.fill();
+    }
+  } else {
+    // 闭着嘴
+    ctx.strokeStyle = '#7B241C';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, -15 * s, 6 * s, 0.2, Math.PI - 0.2);
+    ctx.stroke();
+  }
+
+  // 鼻孔微烟
+  if (jawOpen < 0.3) {
+    ctx.fillStyle = 'rgba(100,100,100,0.4)';
+    ctx.beginPath(); ctx.arc(-3 * s, -25 * s, 1.5 * s, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(3 * s, -25 * s, 1.5 * s, 0, Math.PI * 2); ctx.fill();
+  }
+
+  ctx.restore(); // body transform
+  ctx.restore(); // main transform
+}
+
+// ── 冰霜女妖 (HP55/ATK5/盾40) ──
+function drawBansheeMonster(ctx, x, y, progress, state, flashAlpha) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  let bodyY = 0, bodyX = 0, bodyScaleX = 1, bodyScaleY = 1;
+  let handRaise = 0, glowAlpha = 0;
+
+  switch (state) {
+    case 'idle':
+      bodyY = Math.sin(performance.now() * 0.0025 + 3) * 4;
+      bodyScaleY = 1 + Math.sin(performance.now() * 0.003 + 3) * 0.04;
+      glowAlpha = 0.3 + Math.sin(performance.now() * 0.005) * 0.15;
+      break;
+    case 'attack':
+      if (progress < 0.3) {
+        bodyX = (progress / 0.3) * 20;
+        handRaise = (progress / 0.3);
+      } else if (progress < 0.6) {
+        bodyX = 20;
+        handRaise = 1 - (progress - 0.3) / 0.3;
+        glowAlpha = 0.8;
+      } else { bodyX = 20 * (1 - (progress - 0.6) / 0.4); handRaise = 0; }
+      break;
+    case 'cast':
+      bodyY = -Math.sin(progress * Math.PI) * 12;
+      handRaise = Math.sin(progress * Math.PI);
+      glowAlpha = 0.6 + Math.sin(progress * Math.PI) * 0.4;
+      break;
+    case 'hit':
+      bodyX = Math.sin(progress * Math.PI * 4) * 8 * (1 - progress);
+      bodyY = -progress * 3;
+      break;
+    case 'heal':
+      glowAlpha = 0.5 + Math.sin(progress * Math.PI) * 0.5;
+      bodyY = -Math.sin(progress * Math.PI) * 8;
+      break;
+    case 'buff':
+      handRaise = Math.sin(progress * Math.PI);
+      bodyScaleX = 1 + Math.sin(progress * Math.PI) * 0.06;
+      glowAlpha = 0.4 + Math.sin(progress * Math.PI) * 0.5;
+      break;
+    case 'victory':
+      bodyY = -Math.abs(Math.sin(progress * Math.PI * 2 + 1)) * 12;
+      glowAlpha = 0.3;
+      break;
+    case 'defeat':
+      bodyY = progress * 16;
+      glowAlpha = (1 - progress) * 0.5;
+      break;
+  }
+
+  if (flashAlpha > 0) ctx.globalAlpha = 0.5 + flashAlpha * 0.5;
+
+  const s = 1.0;
+
+  ctx.save();
+  ctx.translate(bodyX, bodyY);
+  ctx.scale(bodyScaleX, bodyScaleY);
+
+  // ── 灵光 ──
+  ctx.fillStyle = 'rgba(52,152,219,' + (glowAlpha * 0.3) + ')';
+  ctx.beginPath();
+  ctx.ellipse(0, 4 * s, 18 * s, 28 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ── 下摆（撕裂的裙摆/雾气） ──
+  const tnow = performance.now() * 0.004;
+  ctx.fillStyle = '#5DADE2';
+  ctx.beginPath();
+  ctx.moveTo(-10 * s, 14 * s);
+  ctx.quadraticCurveTo(-14 * s, 26 * s, -8 * s + Math.sin(tnow) * 2, 32 * s);
+  ctx.lineTo(-3 * s, 24 * s);
+  ctx.lineTo(0, 34 * s + Math.sin(tnow + 1) * 2);
+  ctx.lineTo(3 * s, 24 * s);
+  ctx.lineTo(8 * s + Math.sin(tnow + 2) * 2, 32 * s);
+  ctx.quadraticCurveTo(14 * s, 26 * s, 10 * s, 14 * s);
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalAlpha *= 0.7;
+  ctx.fillStyle = '#AED6F1';
+  ctx.fill();
+  ctx.globalAlpha = flashAlpha > 0 ? 0.5 + flashAlpha * 0.5 : 1;
+
+  // ── 身体（纤细） ──
+  const bodyGrad = ctx.createLinearGradient(0, -8 * s, 0, 16 * s);
+  bodyGrad.addColorStop(0, '#E8F8F5');
+  bodyGrad.addColorStop(0.5, '#AED6F1');
+  bodyGrad.addColorStop(1, '#5DADE2');
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.moveTo(-7 * s, -8 * s);
+  ctx.quadraticCurveTo(-9 * s, 4 * s, -8 * s, 16 * s);
+  ctx.lineTo(8 * s, 16 * s);
+  ctx.quadraticCurveTo(9 * s, 4 * s, 7 * s, -8 * s);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#85C1E9';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // ── 左臂（向上，施法姿势） ──
+  ctx.save();
+  if (handRaise > 0) {
+    ctx.translate(-12 * s, -4 * s);
+    ctx.rotate(-handRaise * 0.6);
+  }
+  ctx.fillStyle = '#D6EAF8';
+  ctx.beginPath();
+  ctx.roundRect(-16 * s, -4 * s, 6 * s, 14 * s, 3);
+  ctx.fill();
+  // 手指（冰晶）
+  ctx.fillStyle = '#85C1E9';
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.arc(-14 * s + i * 3 * s, -6 * s, 2 * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // ── 右臂（攻击延伸） ──
+  ctx.save();
+  ctx.translate(10 * s, -4 * s);
+  if (handRaise > 0) {
+    ctx.rotate(handRaise * 0.5);
+  }
+  ctx.fillStyle = '#D6EAF8';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, 6 * s, 14 * s, 3);
+  ctx.fill();
+  // 手指
+  ctx.fillStyle = '#85C1E9';
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.arc(5 * s + i * 3 * s, -2 * s, 2 * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // ── 头部 ──
+  ctx.fillStyle = '#E8F8F5';
+  ctx.beginPath();
+  ctx.arc(0, -10 * s, 12 * s, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#AED6F1';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // 长发
+  ctx.fillStyle = '#A9CCE3';
+  ctx.beginPath();
+  ctx.moveTo(-12 * s, -10 * s);
+  ctx.quadraticCurveTo(-14 * s, 0, -10 * s, 12 * s);
+  ctx.quadraticCurveTo(-6 * s, 8 * s, -4 * s, 4 * s);
+  ctx.quadraticCurveTo(-8 * s, 0, -10 * s, -8 * s);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(12 * s, -10 * s);
+  ctx.quadraticCurveTo(14 * s, 0, 10 * s, 12 * s);
+  ctx.quadraticCurveTo(6 * s, 8 * s, 4 * s, 4 * s);
+  ctx.quadraticCurveTo(8 * s, 0, 10 * s, -8 * s);
+  ctx.fill();
+
+  // 冰晶头饰
+  ctx.fillStyle = '#D4E6F1';
+  ctx.beginPath();
+  ctx.moveTo(0, -23 * s);
+  ctx.lineTo(-3 * s, -18 * s);
+  ctx.lineTo(3 * s, -18 * s);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-6 * s, -21 * s);
+  ctx.lineTo(-8 * s, -17 * s);
+  ctx.lineTo(-4 * s, -17 * s);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(6 * s, -21 * s);
+  ctx.lineTo(8 * s, -17 * s);
+  ctx.lineTo(4 * s, -17 * s);
+  ctx.fill();
+
+  // 眼睛（空洞发光）
+  ctx.fillStyle = 'rgba(52,152,219,' + (0.6 + glowAlpha * 0.4) + ')';
+  ctx.beginPath(); ctx.ellipse(-4 * s, -10 * s, 4 * s, 5 * s, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(4 * s, -10 * s, 4 * s, 5 * s, 0, 0, Math.PI * 2); ctx.fill();
+  // 瞳孔小白点
+  ctx.fillStyle = 'rgba(255,255,255,' + (0.8 + glowAlpha * 0.2) + ')';
+  ctx.beginPath(); ctx.arc(-3 * s, -11 * s, 1.2 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(5 * s, -11 * s, 1.2 * s, 0, Math.PI * 2); ctx.fill();
+
+  // 嘴（悲伤弧线）
+  ctx.strokeStyle = '#5DADE2';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(0, -5 * s, 4 * s, 0.3, Math.PI - 0.3);
+  ctx.stroke();
+
+  // ── 飘浮冰晶 ──
+  ctx.fillStyle = 'rgba(174,214,241,' + (glowAlpha * 0.5) + ')';
+  const cx = Math.cos(tnow) * 14 * s;
+  const cy = -18 * s + Math.sin(tnow * 1.3) * 6 * s;
+  ctx.beginPath(); ctx.arc(cx, cy, 1.5 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - 2 * s); ctx.lineTo(cx + 1 * s, cy - 0.5 * s);
+  ctx.lineTo(cx - 1 * s, cy + 1.5 * s); ctx.lineTo(cx + 1 * s, cy + 0.5 * s);
+  ctx.fill();
+
+  ctx.restore(); // body transform
+  ctx.restore(); // main transform
+}
+
+// ── 暗影史莱姆 (HP120/ATK2/盾10) ──
+function drawSlimeMonster(ctx, x, y, progress, state, flashAlpha) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  let bodyY = 0, bodyX = 0, bodyScaleX = 1, bodyScaleY = 1;
+  let squish = 0;
+
+  switch (state) {
+    case 'idle':
+      bodyY = Math.sin(performance.now() * 0.003 + 2) * 3;
+      bodyScaleX = 1 + Math.sin(performance.now() * 0.004 + 2) * 0.04;
+      bodyScaleY = 1 - Math.sin(performance.now() * 0.004 + 2) * 0.04;
+      break;
+    case 'attack':
+      if (progress < 0.3) {
+        squish = (progress / 0.3);
+        bodyScaleX = 1 + squish * 0.25;
+        bodyScaleY = 1 - squish * 0.2;
+        bodyY = squish * 4;
+      } else if (progress < 0.6) {
+        squish = 1 - (progress - 0.3) / 0.3;
+        bodyX = (progress - 0.3) / 0.3 * 15;
+        bodyScaleX = 1 + squish * 0.25;
+        bodyScaleY = 1 - squish * 0.2;
+      } else { bodyX = 15 * (1 - (progress - 0.6) / 0.4); }
+      break;
+    case 'cast':
+      bodyScaleX = 1 + Math.sin(progress * Math.PI) * 0.08;
+      bodyScaleY = 1 - Math.sin(progress * Math.PI) * 0.06;
+      bodyY = -Math.sin(progress * Math.PI) * 6;
+      break;
+    case 'hit':
+      bodyScaleX = 1 + Math.sin(progress * Math.PI * 3) * 0.12 * (1 - progress);
+      bodyScaleY = 1 - Math.sin(progress * Math.PI * 3) * 0.1 * (1 - progress);
+      bodyX = Math.sin(progress * Math.PI * 4) * 5 * (1 - progress);
+      break;
+    case 'heal':
+      bodyScaleY = 1 - Math.sin(progress * Math.PI) * 0.08;
+      bodyScaleX = 1 + Math.sin(progress * Math.PI) * 0.08;
+      break;
+    case 'buff':
+      bodyScaleX = 1 + Math.sin(progress * Math.PI) * 0.15;
+      bodyScaleY = 1 + Math.sin(progress * Math.PI) * 0.12;
+      squish = Math.sin(progress * Math.PI);
+      break;
+    case 'victory':
+      bodyY = -Math.abs(Math.sin(progress * Math.PI * 3)) * 10;
+      bodyScaleX = 1 + Math.abs(Math.sin(progress * Math.PI * 2)) * 0.08;
+      bodyScaleY = 1 - Math.abs(Math.sin(progress * Math.PI * 2)) * 0.06;
+      break;
+    case 'defeat':
+      bodyScaleX = 1 + progress * 0.3;
+      bodyScaleY = 1 - progress * 0.25;
+      bodyY = progress * 8;
+      break;
+  }
+
+  if (flashAlpha > 0) ctx.globalAlpha = 0.5 + flashAlpha * 0.5;
+
+  const s = 1.0;
+
+  ctx.save();
+  ctx.translate(bodyX, bodyY);
+  ctx.scale(bodyScaleX, bodyScaleY);
+
+  // ── 主体（大圆 blob） ──
+  const tw = performance.now() * 0.004;
+  const bodyGrad = ctx.createRadialGradient(-2 * s, 0, 2 * s, 0, 6 * s, 25 * s);
+  bodyGrad.addColorStop(0, '#8E44AD');
+  bodyGrad.addColorStop(0.5, '#5B2C6F');
+  bodyGrad.addColorStop(1, '#1C0A2E');
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  // 不规则 blob 形状
+  ctx.moveTo(0, -24 * s);
+  ctx.bezierCurveTo(
+    18 * s + Math.sin(tw) * 2, -20 * s,
+    24 * s + Math.sin(tw + 1) * 3, -4 * s,
+    20 * s, 10 * s
+  );
+  ctx.bezierCurveTo(
+    18 * s, 22 * s + Math.sin(tw + 0.5) * 2,
+    8 * s, 24 * s,
+    0, 22 * s
+  );
+  ctx.bezierCurveTo(
+    -8 * s, 24 * s,
+    -18 * s, 22 * s + Math.sin(tw + 1.5) * 2,
+    -20 * s, 10 * s
+  );
+  ctx.bezierCurveTo(
+    -24 * s + Math.sin(tw + 2) * 3, -4 * s,
+    -18 * s + Math.sin(tw + 0.8) * 2, -20 * s,
+    0, -24 * s
+  );
+  ctx.fill();
+  ctx.strokeStyle = '#7D3C98';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 边缘高光
+  ctx.fillStyle = 'rgba(169, 109, 214, 0.25)';
+  ctx.beginPath();
+  ctx.ellipse(-8 * s, -8 * s, 10 * s, 6 * s, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ── 内部气泡 ──
+  ctx.fillStyle = 'rgba(155, 89, 182, 0.3)';
+  ctx.beginPath(); ctx.arc(-5 * s, -2 * s, 5 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(155, 89, 182, 0.2)';
+  ctx.beginPath(); ctx.arc(6 * s, 6 * s, 4 * s, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(-2 * s, 12 * s, 3 * s, 0, Math.PI * 2); ctx.fill();
+
+  // ── 多只眼睛 ──
+  function drawSlimeEye(ex, ey, esize) {
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.ellipse(ex, ey, esize, esize * 1.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#4A235A';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = '#1a1a2e';
+    ctx.beginPath(); ctx.arc(ex, ey, esize * 0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(ex - esize * 0.15, ey - esize * 0.15, esize * 0.18, 0, Math.PI * 2); ctx.fill();
+  }
+
+  drawSlimeEye(-7 * s, -12 * s, 5 * s);
+  drawSlimeEye(7 * s, -12 * s, 5 * s);
+  // 第三只眼（头顶，慵懒）
+  drawSlimeEye(0, -19 * s, 3 * s);
+
+  // ── 嘴（大咧嘴） ──
+  ctx.strokeStyle = '#4A235A';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, -4 * s, 8 * s, 0.15, Math.PI - 0.15);
+  ctx.stroke();
+  // 舌头
+  ctx.fillStyle = '#E74C3C';
+  ctx.beginPath();
+  ctx.ellipse(-1 * s, -2 * s, 3 * s, 2 * s, 0, Math.PI * 0.2, Math.PI * 0.8);
+  ctx.fill();
+
+  // ── 小触角（腿部/衍生物） ──
+  ctx.fillStyle = '#5B2C6F';
+  ctx.beginPath();
+  ctx.ellipse(-14 * s, 20 * s, 5 * s, 4 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(14 * s, 20 * s, 5 * s, 4 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(-6 * s, 23 * s, 4 * s, 3 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(6 * s, 23 * s, 4 * s, 3 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore(); // body transform
+  ctx.restore(); // main transform
+}
+
+// ── 魔物绘制调度器 ──
+function drawMonster(ctx, x, y, progress, state, flashAlpha) {
+  switch (currentMonsterType.id) {
+    case 'golem':   drawGolemMonster(ctx, x, y, progress, state, flashAlpha); break;
+    case 'lizard':  drawLizardMonster(ctx, x, y, progress, state, flashAlpha); break;
+    case 'banshee': drawBansheeMonster(ctx, x, y, progress, state, flashAlpha); break;
+    case 'slime':   drawSlimeMonster(ctx, x, y, progress, state, flashAlpha); break;
+    default:        drawDemonMonster(ctx, x, y, progress, state, flashAlpha);
+  }
+}
+
+// ==================== 特效绘制 ====================
+
+function addBattleEffect(type, x, y, opts) {
+  battleEffects.push({
+    type, x, y,
+    age: 0,
+    maxAge: opts.maxAge || 500,
+    angle: opts.angle || 0,
+    color: opts.color || '#fff',
+    extra: opts.extra || 0,
+  });
+}
+
+function updateAndDrawEffects(ctx) {
+  battleEffects = battleEffects.filter(e => e.age < e.maxAge);
+  for (const e of battleEffects) {
+    e.age += 16.67; // ~60fps step
+    const t = e.age / e.maxAge;
+
+    ctx.save();
+    switch (e.type) {
+      case 'slash': {
+        const alpha = 1 - t;
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = e.color;
+        ctx.lineWidth = 3;
+        ctx.shadowColor = e.color;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, 20 + t * 30, e.angle - 0.5 - t, e.angle + 0.5 + t);
+        ctx.stroke();
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = alpha * 0.7;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, 30 + t * 20, e.angle - 0.3, e.angle + 0.3);
+        ctx.stroke();
+        break;
+      }
+      case 'spark': {
+        const alpha = 1 - t;
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = e.color;
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2 + e.angle;
+          const dist = t * 25;
+          ctx.beginPath();
+          ctx.arc(e.x + Math.cos(a) * dist, e.y + Math.sin(a) * dist, 3 * (1 - t), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      }
+      case 'healParticle': {
+        const alpha = 1 - t;
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = e.color;
+        const rise = t * 30;
+        const wobble = Math.sin(t * 8 + e.extra) * 10;
+        ctx.beginPath();
+        ctx.arc(e.x + wobble, e.y - rise, 3 * (1 - t), 0, Math.PI * 2);
+        ctx.fill();
+        // 小十字
+        if (t < 0.6) {
+          ctx.strokeStyle = e.color;
+          ctx.lineWidth = 1;
+          const cx = e.x + wobble, cy = e.y - rise;
+          ctx.beginPath(); ctx.moveTo(cx - 4, cy); ctx.lineTo(cx + 4, cy); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(cx, cy - 4); ctx.lineTo(cx, cy + 4); ctx.stroke();
+        }
+        break;
+      }
+      case 'shieldBubble': {
+        const alpha = (1 - t) * 0.6;
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = e.color;
+        ctx.lineWidth = 3 * (1 - t);
+        ctx.shadowColor = e.color;
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, 25 + t * 10, 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+      }
+      case 'buffAura': {
+        const alpha = (1 - t) * 0.5;
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = e.color;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, 28 + Math.sin(t * 6) * 5, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
+    }
+    ctx.restore();
+  }
+}
+
+// ==================== 战斗画布渲染 ====================
+let battleRenderId = null;
+
+function renderBattle() {
+  bctx.clearRect(0, 0, BW, BH);
+
+  // 背景
+  const bgGrad = bctx.createLinearGradient(0, 0, 0, BH);
+  bgGrad.addColorStop(0, '#1a1520');
+  bgGrad.addColorStop(0.5, '#2a1f30');
+  bgGrad.addColorStop(1, '#1a1218');
+  bctx.fillStyle = bgGrad;
+  bctx.beginPath(); bctx.roundRect(0, 0, BW, BH, 14); bctx.fill();
+
+  // 地面
+  bctx.fillStyle = 'rgba(0,0,0,0.3)';
+  bctx.fillRect(0, BH * 0.84, BW, BH * 0.16);
+  bctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  bctx.lineWidth = 1;
+  bctx.beginPath(); bctx.moveTo(0, BH * 0.84); bctx.lineTo(BW, BH * 0.84); bctx.stroke();
+
+  // VS 线
+  bctx.strokeStyle = 'rgba(255,215,0,0.15)';
+  bctx.setLineDash([4, 8]);
+  bctx.beginPath(); bctx.moveTo(BW / 2, BH * 0.15); bctx.lineTo(BW / 2, BH * 0.82); bctx.stroke();
+  bctx.setLineDash([]);
+
+  // ── 特效层（后） ──
+  const behindEffects = battleEffects.filter(e => e.type === 'buffAura' || e.type === 'shieldBubble');
+  for (const e of behindEffects) {
+    const t = e.age / e.maxAge;
+    ctx_single(bctx, e, t);
+  }
+
+  // ── 绘制人物 ──
+  const hp = animProgress(heroState);
+  const mp = animProgress(monState);
+
+  // 魔物（先画它在后层）
+  drawMonster(bctx, monState.x, monState.y, mp, monState.state, monState.flashTimer);
+  // 英雄（在前层）
+  drawHero(bctx, heroState.x, heroState.y, hp, heroState.state, heroState.flashTimer);
+
+  // ── 魔物意图（杀戮尖塔风格） ──
+  if (monsterIntent && !battleOver) {
+    drawIntentBubble(bctx, monState.baseX + 35, monState.baseY - 30, monsterIntent);
+  }
+
+  // ── 特效层（前） ──
+  const frontEffects = battleEffects.filter(e => !(e.type === 'buffAura' || e.type === 'shieldBubble'));
+  for (const e of frontEffects) {
+    const t = e.age / e.maxAge;
+    drawSingleEffect(bctx, e, t);
+  }
+
+  // ── HP 条 ──
+  drawHpBar(bctx, BW * 0.05, BH * 0.78, BW * 0.4, BH * 0.07,
+    hero.hp, hero.maxHp, hero.shield, hero.atk, '勇者', '#4caf50');
+  drawHpBar(bctx, BW * 0.55, BH * 0.78, BW * 0.4, BH * 0.07,
+    monster.hp, monster.maxHp, monster.shield, monster.atk, currentMonsterType.name, '#f44336');
+
+  // ── 名字标签 ──
+  bctx.fillStyle = '#FFD700';
+  bctx.font = `bold ${Math.max(10, BH * 0.08)}px "Microsoft YaHei", sans-serif`;
+  bctx.textAlign = 'center';
+  bctx.fillText('勇 者', heroState.baseX, BH * 0.12);
+  bctx.fillText(currentMonsterType.name, monState.baseX, BH * 0.12);
+
+  // ── 继续动画循环 ──
+  const allDone = (heroState.state === 'idle' || hp >= 1) &&
+                   (monState.state === 'idle' || mp >= 1) &&
+                   battleEffects.length === 0;
+  if (!allDone) {
+    if (heroState.state !== 'idle' && hp >= 1) { heroState.state = 'idle'; }
+    if (monState.state !== 'idle' && mp >= 1) { monState.state = 'idle'; }
+    battleRenderId = requestAnimationFrame(renderBattle);
+  } else {
+    battleRenderId = null;
+  }
+}
+
+function drawSingleEffect(ctx, e, t) {
+  ctx.save();
+  switch (e.type) {
+    case 'slash':
+      ctx.globalAlpha = 1 - t;
+      ctx.strokeStyle = e.color;
+      ctx.lineWidth = 3;
+      ctx.shadowColor = e.color;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, 20 + t * 30, e.angle - 0.5 - t, e.angle + 0.5 + t);
+      ctx.stroke();
+      break;
+    case 'spark':
+      ctx.globalAlpha = 1 - t;
+      ctx.fillStyle = e.color;
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 + e.angle;
+        ctx.beginPath();
+        ctx.arc(e.x + Math.cos(a) * t * 25, e.y + Math.sin(a) * t * 25, 3 * (1 - t), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    case 'healParticle':
+      ctx.globalAlpha = 1 - t;
+      ctx.fillStyle = e.color;
+      ctx.beginPath();
+      ctx.arc(e.x + Math.sin(t * 8 + e.extra) * 10, e.y - t * 30, 3 * (1 - t), 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    case 'shieldBubble':
+      ctx.globalAlpha = (1 - t) * 0.6;
+      ctx.strokeStyle = e.color;
+      ctx.lineWidth = 3 * (1 - t);
+      ctx.shadowColor = e.color;
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, 25 + t * 10, 0, Math.PI * 2);
+      ctx.stroke();
+      break;
+    case 'buffAura':
+      ctx.globalAlpha = (1 - t) * 0.5;
+      ctx.fillStyle = e.color;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, 28 + Math.sin(t * 6) * 5, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+  }
+  ctx.restore();
+}
+
+function ctx_single(ctx, e, t) { drawSingleEffect(ctx, e, t); }
+
+/** 绘制魔物意图气泡 */
+function drawIntentBubble(ctx, cx, cy, intent) {
+  const bw = 52;
+  const bh = 36;
+  const x = cx - bw / 2;
+  const y = cy - bh / 2;
+
+  // 气泡背景
+  ctx.fillStyle = 'rgba(0,0,0,0.75)';
+  ctx.strokeStyle = intent.color;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(x, y, bw, bh, 8); ctx.fill(); ctx.stroke();
+
+  // 尖角指向魔物
+  ctx.fillStyle = 'rgba(0,0,0,0.75)';
+  ctx.beginPath();
+  ctx.moveTo(cx - 6, y + bh);
+  ctx.lineTo(cx, y + bh + 6);
+  ctx.lineTo(cx + 6, y + bh);
+  ctx.fill();
+  ctx.strokeStyle = intent.color;
+  ctx.beginPath(); ctx.moveTo(cx - 6, y + bh); ctx.lineTo(cx, y + bh + 6); ctx.lineTo(cx + 6, y + bh); ctx.stroke();
+
+  // 图标 + 数值
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 11px "Microsoft YaHei", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(intent.icon + ' ' + intent.val, cx, cy + 3);
+
+  // 描述
+  ctx.fillStyle = intent.color;
+  ctx.font = 'bold 8px "Microsoft YaHei", sans-serif';
+  ctx.fillText(intent.desc, cx, cy - 10);
+}
+
+/** 绘制 HP 条 + 属性 */
+function drawHpBar(ctx, x, y, w, h, hp, maxHp, shield, atk, name, color) {
+  // 背景
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, h / 2); ctx.fill();
+
+  // HP 填充
+  const pct = Math.max(0, hp / maxHp);
+  let hpColor = color;
+  if (pct < 0.3) hpColor = '#ff1744';
+  else if (pct < 0.6) hpColor = '#ff9800';
+
+  const barGrad = ctx.createLinearGradient(x, y, x + w * pct, y);
+  barGrad.addColorStop(0, hpColor);
+  barGrad.addColorStop(1, hpColor.replace(')', ',0.7)').replace('rgb', 'rgba'));
+  ctx.fillStyle = barGrad;
+  ctx.beginPath(); ctx.roundRect(x, y, w * pct, h, h / 2); ctx.fill();
+
+  // HP 文字
+  ctx.fillStyle = '#fff';
+  const fontSize = Math.max(8, h * 0.65);
+  ctx.font = `bold ${fontSize}px "Microsoft YaHei", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(hp + '/' + maxHp, x + w / 2, y + h / 2);
+
+  // ── 下方属性 ──
+  const infoY = y + h + Math.max(3, h * 0.5);
+  const infoSize = Math.max(7, h * 0.55);
+  ctx.font = `bold ${infoSize}px "Microsoft YaHei", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  // ATK
+  ctx.fillStyle = '#FF9800';
+  ctx.fillText('⚔ ATK ' + atk, x + w * 0.25, infoY);
+
+  // 护盾
+  ctx.fillStyle = '#64B5F6';
+  ctx.fillText('🛡 ' + shield, x + w * 0.75, infoY);
+}
+
+// ==================== 战斗流程 ====================
+
+function showBattleLog(msg) {
+  const area = document.getElementById('battleLogArea');
+  const span = document.createElement('span');
+  span.className = 'battle-log-msg';
+  span.textContent = msg;
+  area.innerHTML = '';
+  area.appendChild(span);
+  setTimeout(() => { if (area.contains(span)) span.remove(); }, 2600);
+}
+
+function dealDamage(target, amount) {
+  if (amount <= 0) return { blocked: 0, dealt: 0 };
+  if (target.shield >= amount) {
+    target.shield -= amount;
+    return { blocked: amount, dealt: 0 };
+  } else {
+    const leftover = amount - target.shield;
+    const blocked = target.shield;
+    target.shield = 0;
+    target.hp = Math.max(0, target.hp - leftover);
+    return { blocked, dealt: leftover };
+  }
+}
+
+function startBattleLoop() {
+  if (!battleRenderId) {
+    battleRenderId = requestAnimationFrame(renderBattle);
+  }
+}
+
+function applyBattleEffect(battleType, multiplier) {
+  const mult = multiplier || 1;
+  let logMsg = '';
+
+  switch (battleType) {
+    case 'sword': {
+      const dmg = hero.atk * mult;
+      const result = dealDamage(monster, dmg);
+      startHeroAnim('attack', 500);
+      startMonAnim('hit', 400);
+
+      if (mult >= 5) {
+        logMsg = '⚔️ 三消暴击！造成 ' + dmg + ' 点伤害！';
+      } else {
+        logMsg = '⚔️ 勇者攻击！造成 ' + dmg + ' 点伤害';
+      }
+      if (result.blocked > 0 && result.dealt === 0) logMsg += '（护盾吸收）';
+      else if (result.blocked > 0) logMsg += '（护盾吸收 ' + result.blocked + '）';
+      break;
+    }
+    case 'wand': {
+      const boost = mult >= 5 ? 3 : 1;
+      hero.atk += boost;
+      startHeroAnim('cast', 500);
+      if (mult >= 5) {
+        logMsg = '🪄 三消强化！攻击力 +' + boost + '！';
+      } else {
+        logMsg = '🪄 勇者强化！攻击力 +' + boost;
+      }
+      break;
+    }
+    case 'shield': {
+      const gain = (Math.ceil(hero.atk / 2) + 1) * mult;
+      hero.shield += gain;
+      startHeroAnim('cast', 400);
+      if (mult >= 5) {
+        logMsg = '🛡️ 三消护盾！获得 ' + gain + ' 点护盾！';
+      } else {
+        logMsg = '🛡️ 勇者防御！获得 ' + gain + ' 点护盾';
+      }
+      break;
+    }
+    case 'heart': {
+      const healAmt = Math.min((Math.ceil(hero.atk / 3) + 1) * mult, hero.maxHp - hero.hp);
+      hero.hp += healAmt;
+      startHeroAnim('heal', 500);
+      if (mult >= 5) {
+        logMsg = '❤️ 三消回复！恢复 ' + healAmt + ' 点生命！';
+      } else {
+        logMsg = '❤️ 勇者回复！恢复 ' + healAmt + ' 点生命';
+      }
+      break;
+    }
+    case 'bomb': {
+      const dmg = 3 * mult;
+      hero.hp = Math.max(0, hero.hp - dmg);
+      startHeroAnim('hit', 500);
+      if (mult >= 5) {
+        logMsg = '💣 三消炸弹！勇者受到 ' + dmg + ' 点伤害！';
+      } else {
+        logMsg = '💣 炸弹自伤！勇者受到 ' + dmg + ' 点伤害';
+      }
+      break;
+    }
+  }
+
+  showBattleLog(logMsg);
+  startBattleLoop();
+}
+
+function rollMonsterIntent() {
+  if (monster.hp <= 0) { monsterIntent = null; return; }
+  const lowHp = monster.hp <= monster.maxHp * 0.4;
+
+  const rAtk = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+  const atkMin = Math.max(1, monster.atk - 3), atkMax = monster.atk + 3;
+  const rageBase = Math.ceil(monster.atk / 4);
+  const rageMin = Math.max(1, rageBase - 1), rageMax = rageBase + 1;
+
+  let actions = [];
+  actions.push({ name: 'attack', weight: lowHp ? 28 : 48,   icon: '⚔️', desc: '攻击', val: rAtk(atkMin, atkMax), color: '#ff5252' });
+  if (monster.hp < monster.maxHp) actions.push({ name: 'heal',  weight: lowHp ? 30 : 20,   icon: '💚', desc: '回复', val: rAtk(atkMin, atkMax), color: '#69f0ae' });
+  actions.push({ name: 'shield', weight: monster.shield === 0 ? (lowHp ? 27 : 18) : 8, icon: '🛡️', desc: '防御', val: rAtk(atkMin, atkMax), color: '#64b5f6' });
+  actions.push({ name: 'rage',   weight: lowHp ? 15 : 14,      icon: '💢', desc: '狂暴', val: rAtk(rageMin, rageMax), color: '#ff1744' });
+
+  const totalW = actions.reduce((s, a) => s + a.weight, 0);
+  let roll = Math.random() * totalW;
+  let chosen = actions[0];
+  for (const a of actions) { roll -= a.weight; if (roll <= 0) { chosen = a; break; } }
+  monsterIntent = chosen;
+}
+
+function monsterAction() {
+  if (monster.hp <= 0 || !monsterIntent) return;
+
+  const chosen = monsterIntent.name;
+
+  let logMsg = '';
+
+  switch (chosen) {
+    case 'attack': {
+      const dmg = monsterIntent.val;
+      const result = dealDamage(hero, dmg);
+      startMonAnim('attack', 500);
+      startHeroAnim('hit', 400);
+      logMsg = '👹 ' + currentMonsterType.name + '攻击！造成 ' + dmg + ' 点伤害';
+      if (result.blocked > 0 && result.dealt === 0) logMsg += '（护盾吸收）';
+      else if (result.blocked > 0) logMsg += '（护盾吸收 ' + result.blocked + '）';
+      break;
+    }
+    case 'heal': {
+      const healAmt = Math.min(monsterIntent.val, monster.maxHp - monster.hp);
+      monster.hp += healAmt;
+      startMonAnim('heal', 500);
+      logMsg = '👹 ' + currentMonsterType.name + '回复！恢复 ' + healAmt + ' 点生命';
+      break;
+    }
+    case 'shield': {
+      const gain = monsterIntent.val;
+      monster.shield += gain;
+      startMonAnim('cast', 400);
+      logMsg = '👹 ' + currentMonsterType.name + '护盾！获得 ' + gain + ' 点护盾';
+      break;
+    }
+    case 'rage': {
+      const boost = monsterIntent.val;
+      monster.atk += boost;
+      startMonAnim('buff', 500);
+      logMsg = '👹 ' + currentMonsterType.name + '狂暴！攻击力 +' + boost;
+      break;
+    }
+  }
+
+  showBattleLog(logMsg);
+  startBattleLoop();
+  rollMonsterIntent();
+}
+
+function checkBattleEnd() {
+  if (hero.hp <= 0) {
+    battleOver = true;
+    gameState = 'lose';
+    stopMusic();
+    winStreak = 0;
+    updateStreakDisplay();
+    startHeroAnim('defeat', 800);
+    startMonAnim('victory', 1000);
+    startBattleLoop();
+    setTimeout(() => showBattleModal(false), 900);
+    return true;
+  }
+  if (monster.hp <= 0) {
+    battleOver = true;
+    gameState = 'win';
+    stopMusic();
+    winStreak++;
+    if (winStreak > maxWinStreak) {
+      maxWinStreak = winStreak;
+      localStorage.setItem('maxWinStreak', maxWinStreak);
+    }
+    updateStreakDisplay();
+    startMonAnim('defeat', 800);
+    startHeroAnim('victory', 1000);
+    startBattleLoop();
+    setTimeout(() => showBattleModal(true), 900);
+    return true;
+  }
+  return false;
+}
+
+function showBattleModal(isWin) {
+  const overlay = document.getElementById('modalOverlay');
+  const box = document.getElementById('modalBox');
+  if (isWin) {
+    box.innerHTML = `
+      <div class="modal-emoji">🏆</div>
+      <div class="modal-title">战斗胜利！</div>
+      <div class="modal-sub">勇者击败了${currentMonsterType.name}！<br>剩余生命：${hero.hp}/${hero.maxHp}</div>
+      <div class="modal-streak">🔥 连胜 ×${winStreak}</div>
+      ${maxWinStreak > 0 ? `<div style="font-size:14px;color:#8b6914;margin-bottom:10px;">👑 最高连胜 ${maxWinStreak}</div>` : ''}
+      <button class="modal-btn" onclick="restartGame()">🔄 再来一局</button>`;
+  } else {
+    box.innerHTML = `
+      <div class="modal-emoji">💀</div>
+      <div class="modal-title">战斗失败</div>
+      <div class="modal-sub">勇者倒下了……<br>${currentMonsterType.name}剩余生命：${monster.hp}/${monster.maxHp}</div>
+      <button class="modal-btn" onclick="restartGame()">🔁 重新挑战</button>`;
+  }
+  overlay.classList.add('show');
+  spawnParticles(isWin ? 25 : 8);
+}
+
+function updateStreakDisplay() {
+  const badge = document.getElementById('streakBadge');
+  const maxBadge = document.getElementById('maxStreakBadge');
+  if (winStreak <= 0) {
+    badge.style.display = 'none';
+  } else {
+    badge.style.display = 'inline-block';
+    badge.textContent = '🔥 ' + winStreak;
+    badge.classList.add('big');
+    setTimeout(() => badge.classList.remove('big'), 500);
+  }
+  if (maxWinStreak > 0) {
+    maxBadge.style.display = 'inline-block';
+    maxBadge.textContent = '👑 ' + maxWinStreak;
+  } else {
+    maxBadge.style.display = 'none';
+  }
+}
+
+// ==================== 工具函数 ====================
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// ==================== 卡牌布局 ====================
+function generateLayout() {
+  tiles = [];
+  const typeCount = TILE_TYPES.length;
+  const perType = 15;
+  let pool = [];
+  for (let t = 0; t < typeCount; t++) {
+    for (let i = 0; i < perType; i++) pool.push(t);
+  }
+  pool = shuffleArray(pool);
+
+  const layers = [
+    { cols: 8, rows: 3, count: 24, startX: 0,                startY: TILE_H * 0.3 },
+    { cols: 7, rows: 3, count: 21, startX: TILE_W * 0.5,     startY: TILE_H * 0.05 },
+    { cols: 5, rows: 3, count: 15, startX: TILE_W * 1.2,     startY: TILE_H * -0.5 },
+  ];
+
+  let idx = 0, tileId = 0;
+  for (let li = 0; li < layers.length; li++) {
+    const L = layers[li];
+    for (let i = 0; i < L.count && idx < pool.length; i++) {
+      const col = i % L.cols;
+      const row = Math.floor(i / L.cols);
+      const x = L.startX + col * TILE_W + (row % 2) * TILE_W * 0.5;
+      const y = L.startY + row * TILE_H * 0.85;
+      const jx = (Math.random() - 0.5) * TILE_W * 0.15;
+      const jy = (Math.random() - 0.5) * TILE_H * 0.12;
+      tiles.push({
+        id: tileId++, type: pool[idx++], layer: li,
+        x: x + jx, y: y + jy, w: TILE_W, h: TILE_H, removed: false,
+      });
+    }
+  }
+
+  const allX = tiles.filter(t => !t.removed).map(t => t.x);
+  const allY = tiles.filter(t => !t.removed).map(t => t.y);
+  if (allX.length > 0) {
+    const cx = GW / 2 - (Math.min(...allX) + Math.max(...allX)) / 2;
+    const cy = GH / 2 - (Math.min(...allY) + Math.max(...allY)) / 2;
+    tiles.forEach(t => { t.x += cx; t.y += cy; });
+
+    // 确保卡牌不超出画布，留出边距
+    const padX = TILE_W * 0.3;
+    const padY = TILE_H * 0.3;
+    const rightMost  = Math.max(...tiles.map(t => t.x + TILE_W));
+    const bottomMost = Math.max(...tiles.map(t => t.y + TILE_H));
+    const leftMost   = Math.min(...tiles.map(t => t.x));
+    const topMost    = Math.min(...tiles.map(t => t.y));
+    if (rightMost  > GW - padX) tiles.forEach(t => { t.x -= (rightMost - GW + padX); });
+    if (bottomMost > GH - padY) tiles.forEach(t => { t.y -= (bottomMost - GH + padY); });
+    if (leftMost   < padX)       tiles.forEach(t => { t.x += (padX - leftMost); });
+    if (topMost    < padY)       tiles.forEach(t => { t.y += (padY - topMost); });
+  }
+}
+
+// ==================== 覆盖检测 ====================
+function isTileCovered(tile) {
+  for (const other of tiles) {
+    if (other.removed || other.id === tile.id) continue;
+    if (other.layer < tile.layer) continue;
+    if (other.layer === tile.layer && other.id < tile.id) continue;
+    const ox = overlapX(tile, other), oy = overlapY(tile, other);
+    const thX = other.layer > tile.layer ? TILE_W * 0.04 : TILE_W * 0.20;
+    const thY = other.layer > tile.layer ? TILE_H * 0.04 : TILE_H * 0.20;
+    if (ox > thX && oy > thY) return true;
+  }
+  return false;
+}
+
+function overlapX(a, b) { return Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)); }
+function overlapY(a, b) { return Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y)); }
+function isTileClickable(tile) { return !tile.removed && !isTileCovered(tile); }
+
+// ==================== 卡牌渲染 ====================
+function renderCards() {
+  gctx.clearRect(0, 0, GW, GH);
+  gctx.fillStyle = 'rgba(255,255,255,0.08)';
+  roundRectG(gctx, 0, 0, GW, GH, 16, true, false);
+
+  const sorted = [...tiles].filter(t => !t.removed).sort((a, b) =>
+    a.layer !== b.layer ? a.layer - b.layer : a.id - b.id);
+  const maxLayer = Math.max(...sorted.map(t => t.layer));
+
+  for (const tile of sorted) {
+    const covered = isTileCovered(tile);
+    const isHovered = tile.id === hoveredTileId && !covered;
+    const typeInfo = TILE_TYPES[tile.type];
+    const cx = tile.x + tile.w / 2, cy = tile.y + tile.h / 2;
+    const r = 12, fontSize = Math.max(TILE_W * 0.58, 30);
+
+    gctx.save();
+    gctx.shadowColor = covered ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.2)';
+    gctx.shadowBlur = covered ? 4 : 14;
+    gctx.shadowOffsetX = 0; gctx.shadowOffsetY = covered ? 1 : 6;
+
+    let gTop, gBot;
+    if (covered) { gTop = '#cfcfcf'; gBot = '#b8b8b8'; }
+    else if (isHovered) { gTop = '#fffff0'; gBot = '#fdf0d0'; }
+    else { gTop = '#ffffff'; gBot = '#f2ead8'; }
+    const grad = gctx.createLinearGradient(tile.x, tile.y, tile.x, tile.y + tile.h);
+    grad.addColorStop(0, gTop); grad.addColorStop(0.6, gBot);
+    gctx.fillStyle = grad;
+    gctx.beginPath(); roundRectPathG(gctx, tile.x, tile.y, tile.w, tile.h, r); gctx.fill();
+    gctx.restore();
+
+    gctx.save();
+    gctx.strokeStyle = covered ? '#999' : (isHovered ? '#f08040' : '#b0884a');
+    gctx.lineWidth = isHovered ? 2.5 : 1.5;
+    gctx.beginPath(); roundRectPathG(gctx, tile.x, tile.y, tile.w, tile.h, r); gctx.stroke();
+    gctx.restore();
+
+    if (!covered) {
+      gctx.save();
+      gctx.strokeStyle = 'rgba(255,255,255,0.7)'; gctx.lineWidth = 2;
+      gctx.beginPath();
+      gctx.moveTo(tile.x + r + 2, tile.y + 3);
+      gctx.lineTo(tile.x + tile.w - r - 2, tile.y + 3);
+      gctx.quadraticCurveTo(tile.x + tile.w - 2, tile.y + 3, tile.x + tile.w - 2, tile.y + r + 2);
+      gctx.stroke();
+      gctx.beginPath();
+      gctx.moveTo(tile.x + 3, tile.y + r + 2);
+      gctx.lineTo(tile.x + 3, tile.y + tile.h - r - 2);
+      gctx.quadraticCurveTo(tile.x + 3, tile.y + tile.h - 2, tile.x + r + 2, tile.y + tile.h - 2);
+      gctx.stroke();
+      gctx.restore();
+    }
+
+    if (!covered) {
+      gctx.save();
+      gctx.beginPath(); roundRectPathG(gctx, tile.x, tile.y, tile.w, tile.h, r); gctx.clip();
+      const sg = gctx.createRadialGradient(tile.x + tile.w * 0.3, tile.y + tile.h * 0.15, 0,
+        tile.x + tile.w * 0.3, tile.y + tile.h * 0.15, tile.w * 1.1);
+      sg.addColorStop(0, 'rgba(255,255,255,0.35)');
+      sg.addColorStop(0.4, 'rgba(255,255,255,0.08)');
+      sg.addColorStop(1, 'rgba(0,0,0,0)');
+      gctx.fillStyle = sg;
+      gctx.fillRect(tile.x - 2, tile.y - 2, tile.w + 4, tile.h * 0.7);
+      gctx.restore();
+    }
+
+    if (isHovered) {
+      gctx.save();
+      gctx.shadowColor = '#ffcc80'; gctx.shadowBlur = 16;
+      gctx.beginPath(); roundRectPathG(gctx, tile.x, tile.y, tile.w, tile.h, r);
+      gctx.fillStyle = 'transparent'; gctx.fill();
+      gctx.restore();
+    }
+
+    gctx.save();
+    if (covered) { gctx.globalAlpha = 0.45; gctx.filter = 'grayscale(30%) brightness(0.7)'; }
+    gctx.fillStyle = 'rgba(255,255,255,0.55)';
+    gctx.beginPath(); gctx.arc(cx, cy, fontSize * 0.55, 0, Math.PI * 2); gctx.fill();
+    gctx.font = `${fontSize}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+    gctx.textAlign = 'center'; gctx.textBaseline = 'middle';
+    gctx.fillText(typeInfo.emoji, cx, cy);
+    gctx.restore();
+  }
+}
+
+function roundRectG(ctx, x, y, w, h, r, fill, stroke) {
+  ctx.beginPath(); roundRectPathG(ctx, x, y, w, h, r);
+  if (fill) ctx.fill(); if (stroke) ctx.stroke();
+}
+function roundRectPathG(ctx, x, y, w, h, r) {
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ==================== 收集槽 ====================
+function renderCollection() {
+  const bar = document.getElementById('collectionBar');
+  bar.innerHTML = '';
+  for (let i = 0; i < 7; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'slot';
+    if (i < collection.length) {
+      slot.className += ' filled';
+      slot.textContent = TILE_TYPES[collection[i].type].emoji;
+    }
+    bar.appendChild(slot);
+  }
+}
+
+// ==================== 交互 ====================
+gameCanvas.addEventListener('click', handleClick);
+gameCanvas.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  const touch = e.changedTouches[0];
+  const rect = gameCanvas.getBoundingClientRect();
+  handleClickAt(touch.clientX - rect.left, touch.clientY - rect.top);
+});
+gameCanvas.addEventListener('mousemove', (e) => {
+  const rect = gameCanvas.getBoundingClientRect();
+  const p = hoveredTileId;
+  hoveredTileId = findTileAt(e.clientX - rect.left, e.clientY - rect.top);
+  if (p !== hoveredTileId) renderCards();
+});
+gameCanvas.addEventListener('mouseleave', () => { hoveredTileId = null; renderCards(); });
+
+function handleClick(e) {
+  const rect = gameCanvas.getBoundingClientRect();
+  handleClickAt(e.clientX - rect.left, e.clientY - rect.top);
+}
+function handleClickAt(x, y) {
+  if (gameState !== 'playing' || battleOver) return;
+  const tile = findTileAt(x, y);
+  if (!tile) return;
+  selectTile(tile);
+}
+function findTileAt(x, y) {
+  const sorted = [...tiles].filter(t => !t.removed && !isTileCovered(t))
+    .sort((a, b) => b.layer !== a.layer ? b.layer - a.layer : b.id - a.id);
+  for (const tile of sorted) {
+    if (x >= tile.x && x <= tile.x + tile.w && y >= tile.y && y <= tile.y + tile.h) return tile;
+  }
+  return null;
+}
+
+// ==================== 选择卡牌 ====================
+function selectTile(tile) {
+  if (animating || collection.length >= 7 || battleOver) return;
+  undoStack.push({ tileId: tile.id, type: tile.type });
+  tile.removed = true;
+  collection.push({ type: tile.type, tileId: tile.id });
+  pendingBattleType = TILE_TYPES[tile.type].battleType;
+
+  renderCards();
+  renderCollection();
+  updateUndoButton();
+
+  animating = true;
+  setTimeout(checkMatch, 250);
+}
+
+// ==================== 三消 + 战斗 ====================
+function checkMatch() {
+  if (gameState !== 'playing') return;
+  const tc = {};
+  collection.forEach((item, idx) => {
+    if (!tc[item.type]) tc[item.type] = [];
+    tc[item.type].push(idx);
+  });
+  let matched = null;
+  for (const [type, indices] of Object.entries(tc)) {
+    if (indices.length >= 3) { matched = { type: parseInt(type), indices: indices.slice(0, 3) }; break; }
+  }
+
+  const mult = matched ? 5 : 1;
+  if (pendingBattleType !== null) {
+    applyBattleEffect(pendingBattleType, mult);
+    pendingBattleType = null;
+  }
+
+  if (!battleOver) monsterAction();
+  if (checkBattleEnd()) { animating = false; return; }
+
+  if (matched) {
+    animateMatch(matched.indices);
+  } else {
+    animating = false;
+    if (!battleOver) checkLose();
+  }
+}
+
+function animateMatch(indices) {
+  const slots = document.querySelectorAll('.slot');
+  indices.forEach(i => { if (slots[i]) slots[i].classList.add('matched'); });
+  spawnParticles(3);
+  setTimeout(() => {
+    const sorted = [...indices].sort((a, b) => b - a);
+    sorted.forEach(i => collection.splice(i, 1));
+    renderCollection();
+    animating = false;
+    checkWin();
+    if (!battleOver) checkLose();
+  }, 400);
+}
+
+// ==================== 判胜/判负 ====================
+function checkWin() {
+  const rem = tiles.filter(t => !t.removed);
+  if (rem.length === 0 && collection.length === 0 && !battleOver) {
+    gameState = 'win'; battleOver = true;
+    showModal('🎉', '恭喜通关！', '成功消除所有卡牌！\n勇者剩余生命：' + hero.hp + '/' + hero.maxHp, true);
+    renderCards();
+  }
+}
+function checkLose() {
+  if (gameState !== 'playing' || battleOver) return;
+  if (collection.length >= 7) {
+    const tc2 = {};
+    collection.forEach(item => { tc2[item.type] = (tc2[item.type] || 0) + 1; });
+    if (!Object.values(tc2).some(c => c >= 3)) {
+      gameState = 'lose'; battleOver = true;
+      showModal('😢', '挑战失败', '收集槽已满，再来一次吧！', false);
+    }
+  }
+}
+
+// ==================== 弹窗 ====================
+function showModal(emoji, title, sub, isWin) {
+  const overlay = document.getElementById('modalOverlay');
+  const box = document.getElementById('modalBox');
+  box.innerHTML = `
+    <div class="modal-emoji">${emoji}</div>
+    <div class="modal-title">${title}</div>
+    <div class="modal-sub">${sub}</div>
+    <button class="modal-btn" onclick="restartGame()">${isWin ? '🔄 再来一局' : '🔁 重新挑战'}</button>`;
+  overlay.classList.add('show');
+  spawnParticles(isWin ? 15 : 5);
+}
+
+// ==================== 道具 ====================
+function undo() {
+  if (gameState !== 'playing' || undoRemaining <= 0 || undoStack.length === 0 || battleOver) return;
+  undoRemaining--; updateUndoButton();
+  const last = undoStack.pop();
+  const idx = collection.findIndex(c => c.tileId === last.tileId);
+  if (idx >= 0) collection.splice(idx, 1);
+  const tile = tiles.find(t => t.id === last.tileId);
+  if (tile) tile.removed = false;
+  renderCards(); renderCollection();
+  if (!battleOver) checkLose();
+}
+function shuffle() {
+  if (gameState !== 'playing' || shuffleRemaining <= 0 || battleOver) return;
+  shuffleRemaining--;
+  document.getElementById('shuffleCount').textContent = shuffleRemaining;
+  document.getElementById('btnShuffle').disabled = true;
+  const remaining = tiles.filter(t => !t.removed);
+  const pos = remaining.map(t => ({ x: t.x, y: t.y }));
+  const shuf = shuffleArray([...pos]);
+  remaining.forEach((t, i) => { t.x = shuf[i].x; t.y = shuf[i].y; });
+  spawnParticles(5); renderCards();
+}
+function reserve() {
+  if (gameState !== 'playing' || reserveRemaining <= 0 || collection.length === 0 || battleOver) return;
+  reserveRemaining--;
+  document.getElementById('reserveCount').textContent = reserveRemaining;
+  document.getElementById('btnReserve').disabled = true;
+  const count = Math.min(3, collection.length);
+  const removed = collection.splice(collection.length - count, count);
+  removed.forEach(item => {
+    const tile = tiles.find(t => t.id === item.tileId);
+    if (tile) tile.removed = false;
+  });
+  spawnParticles(3); renderCards(); renderCollection();
+  if (!battleOver) checkLose();
+}
+function updateUndoButton() {
+  document.getElementById('undoCount').textContent = undoRemaining;
+  if (undoRemaining <= 0) document.getElementById('btnUndo').disabled = true;
+}
+
+// ==================== 粒子 ====================
+function spawnParticles(count) {
+  const container = document.getElementById('particles');
+  const colors = ['#ffd700', '#ff9a56', '#56ff8a', '#ff56b4', '#56b4ff', '#ff5656'];
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    const size = 5 + Math.random() * 10;
+    const tx = (Math.random() - 0.5) * 140;
+    const ty = -(50 + Math.random() * 120);
+    const dur = 0.5 + Math.random() * 0.7;
+    p.style.cssText = `
+      position:absolute;width:${size}px;height:${size}px;border-radius:50%;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      left:${40+Math.random()*20}%;top:${55+Math.random()*10}%;
+      pointer-events:none;opacity:1;transform:translate(0,0) scale(1);
+      transition:all ${dur}s ease-out;`;
+    container.appendChild(p);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        p.style.transform = `translate(${tx}px,${ty}px) scale(0)`;
+        p.style.opacity = '0';
+      });
+    });
+    setTimeout(() => p.remove(), dur * 1000 + 100);
+  }
+}
+
+// ==================== 音频系统 ====================
+let audioCtx = null;
+let musicMuted = false;
+let masterGain = null;
+let musicSeq = null; // { timeoutId, nodes[] }
+
+const NOTES = {
+  A3:220, B3:247, C4:262, D4:294, E4:330, F4:349, G4:392,
+  A4:440, B4:494, C5:523, D5:587, E5:659, F5:698, G5:784, A5:880,
+};
+
+function ensureAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (!masterGain || masterGain.numberOfOutputs === 0) {
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.18;
+    masterGain.connect(audioCtx.destination);
+  }
+}
+
+function playTone(freq, startTime, dur, type, vol) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = type; osc.frequency.value = freq;
+  const t = startTime;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.015);
+  g.gain.setValueAtTime(vol, t + dur - 0.04);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  osc.connect(g); g.connect(masterGain);
+  osc.start(t); osc.stop(t + dur + 0.05);
+}
+
+function playNoise(startTime, dur, vol) {
+  if (!audioCtx) return;
+  const len = Math.floor(audioCtx.sampleRate * dur);
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0, startTime);
+  g.gain.linearRampToValueAtTime(vol, startTime + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.001, startTime + dur);
+  const hp = audioCtx.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = 800;
+  src.connect(hp); hp.connect(g); g.connect(masterGain);
+  src.start(startTime); src.stop(startTime + dur + 0.05);
+}
+
+// RPG 战斗主题乐谱
+const bpm = 130;
+const beat = 60 / bpm; // 一拍秒数
+
+const melodyTrack = [
+  // 小节1
+  [NOTES.A4, 0.5], [NOTES.C5, 0.5], [NOTES.E5, 0.5], [NOTES.A5, 0.5],
+  // 小节2
+  [NOTES.G5, 0.5], [NOTES.E5, 0.5], [NOTES.D5, 0.5], [NOTES.C5, 0.5],
+  // 小节3
+  [NOTES.D5, 0.5], [NOTES.E5, 0.5], [NOTES.G5, 0.5], [NOTES.A5, 0.5],
+  // 小节4
+  [NOTES.G5, 1.0], [NOTES.E5, 0.5], [NOTES.D5, 0.5],
+  // 小节5
+  [NOTES.A4, 0.5], [NOTES.C5, 0.5], [NOTES.E5, 0.5], [NOTES.G5, 0.5],
+  // 小节6
+  [NOTES.F5, 0.5], [NOTES.E5, 0.5], [NOTES.D5, 0.5], [NOTES.C5, 0.5],
+  // 小节7
+  [NOTES.D5, 0.5], [NOTES.E5, 0.5], [NOTES.D5, 0.25], [NOTES.C5, 0.25], [NOTES.D5, 0.5],
+  // 小节8
+  [NOTES.E5, 0.75], [NOTES.A4, 0.25], [0, 1.0],
+];
+
+const bassTrack = [
+  [NOTES.A3, 0.75], [0, 0.25], [NOTES.A3, 0.5], [NOTES.E4, 0.5],
+  [NOTES.C4, 0.75], [0, 0.25], [NOTES.C4, 0.5], [NOTES.G4, 0.5],
+  [NOTES.D4, 0.75], [0, 0.25], [NOTES.D4, 0.5], [NOTES.A4, 0.5],
+  [NOTES.E4, 1.0], [NOTES.E4, 0.5], [NOTES.D4, 0.5],
+  [NOTES.A3, 0.75], [0, 0.25], [NOTES.A3, 0.5], [NOTES.E4, 0.5],
+  [NOTES.F4, 0.75], [0, 0.25], [NOTES.F4, 0.5], [NOTES.C5, 0.5],
+  [NOTES.G4, 0.75], [0, 0.25], [NOTES.G4, 0.25], [NOTES.F4, 0.25], [NOTES.E4, 0.5],
+  [NOTES.D4, 0.75], [NOTES.A3, 0.25], [0, 1.0],
+];
+
+const drumTrack = [
+  // K=底鼓, S=军鼓, H=踩镲
+  ['K', 0.25], ['H', 0.25], ['S', 0.25], ['H', 0.25],
+  ['K', 0.25], ['H', 0.25], ['S', 0.25], ['H', 0.25],
+  ['K', 0.25], ['H', 0.25], ['S', 0.25], ['H', 0.25],
+  ['K', 0.25], ['H', 0.25], ['S', 0.25], ['H', 0.25],
+  ['K', 0.25], ['H', 0.25], ['S', 0.25], ['H', 0.25],
+  ['K', 0.25], ['H', 0.25], ['S', 0.25], ['H', 0.25],
+  ['K', 0.25], ['H', 0.25], ['S', 0.25], ['H', 0.25],
+  ['K', 0.25], ['H', 0.25], ['S', 0.125], ['S', 0.125], ['H', 0.5],
+];
+
+function scheduleTrack(track, startTime, notePlayer) {
+  let t = 0;
+  for (const [note, dur] of track) {
+    const sec = dur * beat;
+    if (note !== 0) notePlayer(note, startTime + t, sec);
+    t += sec;
+  }
+  return t;
+}
+
+function playMelodyNote(freq, start, dur) { playTone(freq, start, dur, 'square', 0.07); }
+function playBassNote(freq, start, dur)   { playTone(freq, start, dur, 'triangle', 0.11); }
+
+function scheduleDrum(track, startTime) {
+  let t = 0;
+  for (const [type, dur] of track) {
+    const sec = dur * beat;
+    if (type === 'K') playNoise(startTime + t, 0.08, 0.22);       // 底鼓
+    else if (type === 'S') playNoise(startTime + t, 0.06, 0.16);  // 军鼓
+    else if (type === 'H') playNoise(startTime + t, 0.03, 0.06);  // 踩镲
+    t += sec;
+  }
+  return t;
+}
+
+function startMusic() {
+  ensureAudio();
+  if (musicSeq) { clearTimeout(musicSeq); musicSeq = null; }
+  // 断开旧 masterGain，创建新的——旧排期 oscillator 失去输出路径，杜绝双音重叠
+  masterGain.disconnect();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = musicMuted ? 0 : 0.18;
+  masterGain.connect(audioCtx.destination);
+
+  const now = audioCtx.currentTime + 0.05;
+  const loopLen = scheduleTrack(melodyTrack, now, playMelodyNote);
+  const bassLen = scheduleTrack(bassTrack, now, playBassNote);
+  const drumLen = scheduleDrum(drumTrack, now);
+  const totalLen = Math.max(loopLen, bassLen, drumLen);
+
+  function loop() {
+    if (!audioCtx || !masterGain) return;
+    const t = audioCtx.currentTime;
+    scheduleTrack(melodyTrack, t, playMelodyNote);
+    scheduleTrack(bassTrack, t, playBassNote);
+    scheduleDrum(drumTrack, t);
+    musicSeq = setTimeout(loop, totalLen * 1000 - 80);
+  }
+  musicSeq = setTimeout(loop, totalLen * 1000 - 80);
+}
+
+function stopMusic() {
+  if (musicSeq) { clearTimeout(musicSeq); musicSeq = null; }
+  if (masterGain && audioCtx) {
+    masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+    masterGain.disconnect();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0;
+    masterGain.connect(audioCtx.destination);
+  }
+}
+
+function toggleMusic() {
+  musicMuted = !musicMuted;
+  const btn = document.getElementById('muteBtn');
+  if (musicMuted) {
+    btn.textContent = '🔇';
+    btn.classList.add('muted');
+    stopMusic();
+  } else {
+    btn.textContent = '🔊';
+    btn.classList.remove('muted');
+    if (gameState === 'playing' && !battleOver) startMusic();
+  }
+}
+
+// ==================== 游戏流程 ====================
+function startGame() {
+  gameState = 'playing';
+  battleOver = false;
+  collection = [];
+  undoStack = [];
+  undoRemaining = 3; shuffleRemaining = 1; reserveRemaining = 1;
+  animating = false; pendingBattleType = null;
+  battleEffects = [];
+
+  hero = { ...HERO_BASE };
+  currentMonsterType = MONSTER_TYPES[Math.floor(Math.random() * MONSTER_TYPES.length)];
+  monster = {
+    hp: currentMonsterType.hp,
+    maxHp: currentMonsterType.maxHp,
+    shield: currentMonsterType.shield,
+    atk: currentMonsterType.atk,
+  };
+  heroState.state = 'idle'; monState.state = 'idle';
+  heroState.x = heroState.baseX; heroState.y = heroState.baseY;
+  monState.x = monState.baseX; monState.y = monState.baseY;
+  heroState.flashTimer = 0; monState.flashTimer = 0;
+
+  document.getElementById('undoCount').textContent = '3';
+  document.getElementById('shuffleCount').textContent = '1';
+  document.getElementById('reserveCount').textContent = '1';
+  document.getElementById('btnUndo').disabled = false;
+  document.getElementById('btnShuffle').disabled = false;
+  document.getElementById('btnReserve').disabled = false;
+  document.getElementById('modalOverlay').classList.remove('show');
+
+  resizeGameCanvas(); resizeBattleCanvas(); setCharPositions();
+  generateLayout();
+  renderCards();
+  renderCollection();
+  updateStreakDisplay();
+  battleRenderId = requestAnimationFrame(renderBattle);
+  rollMonsterIntent();
+  startMusic();
+}
+
+function restartGame() { startGame(); }
+
+startGame();
+
+// 浏览器自动播放策略：首次交互时初始化音频，不自动播放
+let audioInitDone = false;
+document.addEventListener('click', function initAudioOnce(e) {
+  if (audioInitDone) return;
+  ensureAudio();
+  // 如果点的是静音按钮，让 toggleMusic 处理；否则自动开始播放
+  if (!e.target.closest('#muteBtn') && gameState === 'playing' && !battleOver && !musicMuted) {
+    startMusic();
+  }
+  audioInitDone = true;
+});
+
+// 静音按钮事件
+document.getElementById('muteBtn').addEventListener('click', function(e) {
+  e.stopPropagation();
+  toggleMusic();
+});
+
+document.addEventListener('touchmove', (e) => {
+  if (e.target.closest('canvas')) e.preventDefault();
+}, { passive: false });
+
+// ==================== PWA Service Worker ====================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(() => {
+      console.log('[PWA] Service Worker 已注册');
+    }).catch(() => {
+      console.log('[PWA] Service Worker 注册失败（可能不在 HTTPS 环境）');
+    });
+  });
+}
+</script>
+</body>
+</html>
