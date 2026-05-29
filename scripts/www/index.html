@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>我的工单</title>
+  <link rel="icon" type="image/png" href="icon.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      padding-bottom: 100px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 420px;
+      padding: 0 16px;
+    }
+
+    /* ===== 标题 ===== */
+    .header {
+      text-align: center;
+      padding: 28px 0 8px;
+    }
+    .header h1 {
+      font-size: 26px;
+      font-weight: 700;
+      color: #1a1a2e;
+      letter-spacing: 2px;
+      display: inline-block;
+      position: relative;
+    }
+    .header h1::after {
+      content: '';
+      display: block;
+      width: 40px;
+      height: 3px;
+      background: linear-gradient(90deg, #4caf50, #ff9800);
+      margin: 8px auto 0;
+      border-radius: 2px;
+    }
+
+    /* ===== 统计栏 ===== */
+    .stats-bar {
+      display: flex;
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .stat-card {
+      flex: 1;
+      padding: 14px;
+      border-radius: 12px;
+      text-align: center;
+      color: #fff;
+      font-weight: 600;
+    }
+    .stat-pending { background: linear-gradient(135deg, #ef6c00, #ff9800); }
+    .stat-done { background: linear-gradient(135deg, #43a047, #66bb6a); }
+    .stat-num { font-size: 28px; display: block; }
+    .stat-label { font-size: 12px; opacity: 0.9; }
+
+    /* ===== 分区标题 ===== */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 6px 10px;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 1px solid #e8e8e8;
+      margin-bottom: 8px;
+    }
+    .section-header h2 {
+      font-size: 17px;
+      font-weight: 600;
+      color: #333;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-header .badge {
+      font-size: 12px;
+      background: #e0e0e0;
+      color: #666;
+      padding: 2px 10px;
+      border-radius: 10px;
+    }
+    .section-header .toggle-icon {
+      font-size: 14px;
+      color: #999;
+      transition: transform 0.3s;
+    }
+    .section.collapsed .toggle-icon { transform: rotate(-90deg); }
+    .section.collapsed .card-list { display: none; }
+
+    /* ===== 工单卡片 ===== */
+    .card-list { display: flex; flex-direction: column; gap: 10px; }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      transition: transform 0.15s, box-shadow 0.15s;
+      border-left: 4px solid transparent;
+    }
+    .card:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.1); }
+    .card.pending { border-left-color: #ff9800; }
+    .card.done { border-left-color: #4caf50; }
+
+    .card-row { display: flex; justify-content: space-between; align-items: flex-start; }
+    .card-info { flex: 1; }
+    .card-info .name { font-size: 15px; font-weight: 600; color: #1a1a2e; margin-bottom: 4px; }
+    .card-info .meta { font-size: 12px; color: #999; }
+    .card-info .part { font-size: 13px; color: #555; margin-top: 2px; }
+    .card-arrow { color: #ccc; font-size: 18px; margin-left: 8px; }
+    .card-actions { display: flex; gap: 6px; }
+    .card-actions button {
+      font-size: 11px;
+      padding: 4px 10px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      color: #fff;
+    }
+    .btn-switch { background: #2196f3; }
+    .btn-delete { background: #f44336; }
+
+    .empty-hint {
+      text-align: center;
+      color: #bbb;
+      font-size: 13px;
+      padding: 24px 0;
+    }
+
+    /* ===== 浮动按钮 ===== */
+    .fab {
+      position: fixed;
+      bottom: 28px;
+      right: calc(50% - 210px + 16px);
+      width: 50px; height: 50px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2196f3, #1976d2);
+      color: #fff;
+      border: none;
+      font-size: 28px;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(33,150,243,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+      z-index: 100;
+    }
+    .fab:hover { transform: scale(1.08); box-shadow: 0 6px 22px rgba(33,150,243,0.5); }
+    .fab:active { transform: scale(0.95); }
+    @media (max-width: 420px) {
+      .fab { right: 16px; }
+    }
+
+    /* ===== 模态弹窗 ===== */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 200;
+      justify-content: center;
+      align-items: flex-start;
+      overflow-y: auto;
+      padding: 20px 16px;
+    }
+    .modal-overlay.active { display: flex; }
+
+    .modal {
+      background: #fff;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 420px;
+      padding: 20px;
+      animation: slideUp 0.25s ease;
+      margin: auto 0;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .modal-header h3 { font-size: 18px; font-weight: 700; color: #1a1a2e; }
+    .modal-close {
+      background: none; border: none;
+      font-size: 22px; color: #999; cursor: pointer;
+      padding: 4px 8px; border-radius: 6px;
+    }
+    .modal-close:hover { background: #f5f5f5; }
+
+    /* ===== 表单 ===== */
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 6px;
+    }
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      color: #333;
+      background: #fafafa;
+      transition: border-color 0.2s, background 0.2s;
+      resize: vertical;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #2196f3;
+      background: #fff;
+    }
+    .form-group textarea { min-height: 60px; }
+    .form-group select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      color: #333;
+      background: #fafafa;
+      appearance: auto;
+      cursor: pointer;
+    }
+    .form-group select:focus {
+      outline: none;
+      border-color: #2196f3;
+      background: #fff;
+    }
+
+    /* 图片上传 */
+    .image-upload-area {
+      border: 1.5px dashed #ccc;
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      background: #fafafa;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .image-upload-area:hover { border-color: #2196f3; }
+    .image-upload-area input[type="file"] { display: none; }
+    .image-upload-area .upload-icon { font-size: 32px; margin-bottom: 6px; }
+    .image-upload-area .upload-text { font-size: 13px; color: #999; }
+    .image-preview-wrap {
+      position: relative;
+      margin-top: 8px;
+      display: none;
+    }
+    .image-preview-wrap img {
+      max-width: 100%;
+      max-height: 200px;
+      border-radius: 8px;
+      border: 1px solid #eee;
+    }
+    .image-preview-wrap .remove-img {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: rgba(244,67,54,0.85);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      font-size: 14px;
+      cursor: pointer;
+      line-height: 22px;
+      text-align: center;
+    }
+
+    /* 费用行 */
+    .cost-row {
+      display: flex;
+      gap: 10px;
+    }
+    .cost-row .form-group {
+      flex: 1;
+    }
+
+    /* ===== 签名区 ===== */
+    .signature-area {
+      border: 1.5px dashed #ccc;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fafafa;
+      position: relative;
+    }
+    .signature-area canvas {
+      display: block;
+      width: 100%;
+      height: 150px;
+      cursor: crosshair;
+      touch-action: none;
+    }
+    .signature-placeholder {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      color: #ccc;
+      font-size: 14px;
+      pointer-events: none;
+    }
+    .signature-tools {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .signature-tools button {
+      flex: 1;
+      padding: 7px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: #fafafa;
+      font-size: 12px;
+      cursor: pointer;
+      color: #666;
+    }
+    .signature-tools button:hover { background: #eee; }
+
+    /* ===== 状态选择 ===== */
+    .status-select {
+      display: flex;
+      gap: 10px;
+    }
+    .status-select label {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .status-select input { display: none; }
+    .status-select input:checked + span {
+      display: block;
+    }
+    .status-select .opt-pending {
+      color: #ef6c00;
+    }
+    .status-select .opt-done {
+      color: #43a047;
+    }
+    .status-select input:checked + .opt-pending,
+    .status-select input:checked ~ .opt-pending {
+      /* use label-based approach */
+    }
+    .status-option {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      flex: 1;
+      padding: 11px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .status-option.pending { color: #ef6c00; }
+    .status-option.done { color: #43a047; }
+    .status-option.selected.pending {
+      border-color: #ff9800;
+      background: #fff3e0;
+    }
+    .status-option.selected.done {
+      border-color: #4caf50;
+      background: #e8f5e9;
+    }
+
+    /* ===== 表单按钮 ===== */
+    .form-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .form-actions button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .form-actions button:active { opacity: 0.8; }
+    .btn-cancel { background: #f0f0f0; color: #666; }
+    .btn-submit { background: linear-gradient(135deg, #2196f3, #1976d2); color: #fff; }
+
+    /* ===== 详情弹窗 ===== */
+    .detail-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 300;
+      justify-content: center;
+      align-items: flex-start;
+      overflow-y: auto;
+      padding: 20px 16px;
+    }
+    .detail-overlay.active { display: flex; }
+
+    .detail-modal {
+      background: #fff;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 420px;
+      padding: 20px;
+      animation: slideUp 0.25s ease;
+      margin: auto 0;
+    }
+    .detail-field { margin-bottom: 14px; }
+    .detail-field .df-label { font-size: 12px; color: #999; margin-bottom: 3px; }
+    .detail-field .df-value { font-size: 15px; color: #333; font-weight: 500; }
+    .detail-sig {
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 8px;
+      background: #fafafa;
+    }
+    .detail-sig img { max-width: 100%; max-height: 120px; display: block; }
+    .detail-status {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .detail-status.pending { background: #fff3e0; color: #ef6c00; }
+    .detail-status.done { background: #e8f5e9; color: #2e7d32; }
+
+    /* ===== 确认弹窗 ===== */
+    .confirm-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .confirm-overlay.active { display: flex; }
+    .confirm-box {
+      background: #fff;
+      border-radius: 14px;
+      padding: 24px 20px 16px;
+      text-align: center;
+      width: 100%;
+      max-width: 300px;
+      animation: slideUp 0.2s ease;
+    }
+    .confirm-box .confirm-icon {
+      font-size: 40px;
+      margin-bottom: 10px;
+    }
+    .confirm-box .confirm-msg {
+      font-size: 15px;
+      color: #333;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    .confirm-actions {
+      display: flex;
+      gap: 10px;
+    }
+    .confirm-actions button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .confirm-cancel { background: #f0f0f0; color: #666; }
+    .confirm-ok { background: #f44336; color: #fff; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- 标题 -->
+  <div class="header"><h1>我的工单</h1></div>
+
+  <!-- 统计栏 -->
+  <div class="stats-bar">
+    <div class="stat-card stat-pending">
+      <span class="stat-num" id="pendingCount">0</span>
+      <span class="stat-label">待办</span>
+    </div>
+    <div class="stat-card stat-done">
+      <span class="stat-num" id="doneCount">0</span>
+      <span class="stat-label">已完成</span>
+    </div>
+  </div>
+
+  <!-- 待办区域 -->
+  <div class="section" id="pendingSection">
+    <div class="section-header" onclick="toggleSection('pendingSection')">
+      <h2>📋 待办 <span class="badge" id="pendingBadge">0</span></h2>
+      <span class="toggle-icon">▼</span>
+    </div>
+    <div class="card-list" id="pendingList">
+      <div class="empty-hint">暂无待办工单</div>
+    </div>
+  </div>
+
+  <!-- 已完成区域 -->
+  <div class="section" id="doneSection">
+    <div class="section-header" onclick="toggleSection('doneSection')">
+      <h2>✅ 已完成 <span class="badge" id="doneBadge">0</span></h2>
+      <span class="toggle-icon">▼</span>
+    </div>
+    <div class="card-list" id="doneList">
+      <div class="empty-hint">暂无已完成工单</div>
+    </div>
+  </div>
+</div>
+
+<!-- 浮动新建按钮 -->
+<button class="fab" onclick="openForm()" title="新建工单">+</button>
+
+<!-- ===== 新建/编辑表单弹窗 ===== -->
+<div class="modal-overlay" id="formOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="formTitle">新建工单</h3>
+      <button class="modal-close" onclick="closeForm()">✕</button>
+    </div>
+    <form id="workOrderForm" onsubmit="submitForm(event)">
+      <input type="hidden" id="editId" value="">
+
+      <div class="form-group">
+        <label>委托人</label>
+        <input type="text" id="client" placeholder="请输入委托人姓名" required>
+      </div>
+
+      <div class="form-group">
+        <label>被委托人</label>
+        <input type="text" id="assignee" placeholder="请输入被委托人姓名" required>
+      </div>
+
+      <div class="form-group">
+        <label>维修部件</label>
+        <input type="text" id="part" placeholder="请输入维修部件名称" required>
+      </div>
+
+      <div class="form-group">
+        <label>问题类型</label>
+        <select id="problemType">
+          <option value="系统">系统</option>
+          <option value="硬件">硬件</option>
+          <option value="软件">软件</option>
+          <option value="网络">网络</option>
+          <option value="安全">安全</option>
+          <option value="其他">其他</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>损坏原因</label>
+        <textarea id="damageReason" placeholder="请描述损坏原因" rows="2" required></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>现场图片</label>
+        <div class="image-upload-area" onclick="document.getElementById('sceneImage').click()">
+          <input type="file" id="sceneImage" accept="image/*" onchange="handleImageUpload(event)">
+          <div class="upload-icon">📷</div>
+          <div class="upload-text">点击上传现场图片</div>
+        </div>
+        <div class="image-preview-wrap" id="imagePreviewWrap">
+          <img id="imagePreview" src="" alt="现场图片预览">
+          <button type="button" class="remove-img" onclick="removeImage()">✕</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>维修说明</label>
+        <textarea id="diagnosis" placeholder="请输入维修说明" rows="2" required></textarea>
+      </div>
+
+      <div class="cost-row">
+        <div class="form-group">
+          <label>维修耗时（h）</label>
+          <input type="number" id="repairHours" placeholder="小时" min="0" step="0.5">
+        </div>
+        <div class="form-group">
+          <label>维修费用（元）</label>
+          <input type="number" id="repairCost" placeholder="0" min="0" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>耗材费用（元）</label>
+          <input type="number" id="materialCost" placeholder="0" min="0" step="0.01">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>签名区</label>
+        <div class="signature-area" id="sigArea">
+          <canvas id="sigCanvas" width="380" height="150"></canvas>
+          <div class="signature-placeholder" id="sigPlaceholder">在此处手写签名</div>
+        </div>
+        <div class="signature-tools">
+          <button type="button" onclick="clearSignature()">清除签名</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>完成情况</label>
+        <div class="status-select" id="statusSelect">
+          <div class="status-option pending selected" data-status="待办" onclick="selectStatus('待办', this)">
+            📋 待办
+          </div>
+          <div class="status-option done" data-status="已完成" onclick="selectStatus('已完成', this)">
+            ✅ 已完成
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn-cancel" onclick="closeForm()">取消</button>
+        <button type="submit" class="btn-submit">提交工单</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== 详情弹窗 ===== -->
+<div class="detail-overlay" id="detailOverlay" onclick="if(event.target===this) closeDetail()">
+  <div class="detail-modal" id="detailContent"></div>
+</div>
+
+<!-- ===== 删除确认弹窗 ===== -->
+<div class="confirm-overlay" id="confirmOverlay" onclick="if(event.target===this) closeConfirm()">
+  <div class="confirm-box">
+    <div class="confirm-icon">⚠️</div>
+    <div class="confirm-msg">确定要删除这条工单吗？<br>删除后无法恢复。</div>
+    <div class="confirm-actions">
+      <button class="confirm-cancel" onclick="closeConfirm()">取消</button>
+      <button class="confirm-ok" onclick="confirmDelete()">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== 数据管理 ====================
+const STORAGE_KEY = 'work_orders';
+
+function loadOrders() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch(e) { return []; }
+}
+
+function saveOrders(orders) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+}
+
+let orders = loadOrders();
+
+// ==================== 签名画布 ====================
+let sigCanvas, sigCtx, sigDrawing = false, sigHasContent = false;
+
+function initSignature() {
+  sigCanvas = document.getElementById('sigCanvas');
+  sigCtx = sigCanvas.getContext('2d');
+  sigCtx.strokeStyle = '#1a1a2e';
+  sigCtx.lineWidth = 2.5;
+  sigCtx.lineCap = 'round';
+  sigCtx.lineJoin = 'round';
+
+  // 鼠标事件
+  sigCanvas.addEventListener('mousedown', startDraw);
+  sigCanvas.addEventListener('mousemove', draw);
+  sigCanvas.addEventListener('mouseup', stopDraw);
+  sigCanvas.addEventListener('mouseleave', stopDraw);
+
+  // 触摸事件
+  sigCanvas.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    startDraw(e.touches[0]);
+  });
+  sigCanvas.addEventListener('touchmove', function(e) {
+    e.preventDefault();
+    draw(e.touches[0]);
+  });
+  sigCanvas.addEventListener('touchend', stopDraw);
+}
+
+function getPos(e) {
+  const rect = sigCanvas.getBoundingClientRect();
+  const scaleX = sigCanvas.width / rect.width;
+  const scaleY = sigCanvas.height / rect.height;
+  return {
+    x: (e.clientX - rect.left) * scaleX,
+    y: (e.clientY - rect.top) * scaleY
+  };
+}
+
+function startDraw(e) {
+  sigDrawing = true;
+  sigHasContent = true;
+  document.getElementById('sigPlaceholder').style.display = 'none';
+  const pos = getPos(e);
+  sigCtx.beginPath();
+  sigCtx.moveTo(pos.x, pos.y);
+}
+
+function draw(e) {
+  if (!sigDrawing) return;
+  const pos = getPos(e);
+  sigCtx.lineTo(pos.x, pos.y);
+  sigCtx.stroke();
+}
+
+function stopDraw() { sigDrawing = false; }
+
+function clearSignature() {
+  sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+  sigHasContent = false;
+  document.getElementById('sigPlaceholder').style.display = '';
+}
+
+function getSignature() {
+  if (!sigHasContent) return '';
+  return sigCanvas.toDataURL('image/png');
+}
+
+function loadSignature(dataUrl) {
+  if (!dataUrl) return;
+  const img = new Image();
+  img.onload = function() {
+    sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+    sigCtx.drawImage(img, 0, 0, sigCanvas.width, sigCanvas.height);
+    sigHasContent = true;
+    document.getElementById('sigPlaceholder').style.display = 'none';
+  };
+  img.src = dataUrl;
+}
+
+// ==================== 图片上传 ====================
+let uploadedImageData = '';
+
+function handleImageUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    uploadedImageData = ev.target.result;
+    document.getElementById('imagePreview').src = uploadedImageData;
+    document.getElementById('imagePreviewWrap').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeImage() {
+  uploadedImageData = '';
+  document.getElementById('sceneImage').value = '';
+  document.getElementById('imagePreviewWrap').style.display = 'none';
+}
+
+// ==================== 状态选择 ====================
+let selectedStatus = '待办';
+
+function selectStatus(status, el) {
+  selectedStatus = status;
+  document.querySelectorAll('.status-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// ==================== 表单操作 ====================
+function openForm(editId) {
+  document.getElementById('formOverlay').classList.add('active');
+  document.getElementById('editId').value = editId || '';
+  document.getElementById('formTitle').textContent = editId ? '编辑工单' : '新建工单';
+
+  if (editId) {
+    const order = orders.find(o => o.id === editId);
+    if (order) {
+      document.getElementById('client').value = order.委托人;
+      document.getElementById('assignee').value = order.被委托人;
+      document.getElementById('part').value = order.维修部件;
+      document.getElementById('problemType').value = order.问题类型 || '硬件';
+      document.getElementById('damageReason').value = order.损坏原因;
+      document.getElementById('diagnosis').value = order.维修说明 || order.诊断结果 || '';
+      document.getElementById('repairHours').value = order.维修耗时 || '';
+      document.getElementById('repairCost').value = order.维修费用 || '';
+      document.getElementById('materialCost').value = order.耗材费用 || '';
+      selectedStatus = order.status;
+      loadSignature(order.signature);
+      if (order.现场图片) {
+        uploadedImageData = order.现场图片;
+        document.getElementById('imagePreview').src = uploadedImageData;
+        document.getElementById('imagePreviewWrap').style.display = 'block';
+      } else {
+        removeImage();
+      }
+      updateStatusUI();
+    }
+  } else {
+    document.getElementById('workOrderForm').reset();
+    clearSignature();
+    removeImage();
+    selectedStatus = '待办';
+    updateStatusUI();
+  }
+}
+
+function updateStatusUI() {
+  document.querySelectorAll('.status-option').forEach(o => {
+    o.classList.toggle('selected', o.dataset.status === selectedStatus);
+  });
+}
+
+function closeForm() {
+  document.getElementById('formOverlay').classList.remove('active');
+}
+
+function submitForm(e) {
+  e.preventDefault();
+  const editId = document.getElementById('editId').value;
+
+  const order = {
+    id: editId || Date.now().toString(),
+    委托人: document.getElementById('client').value.trim(),
+    被委托人: document.getElementById('assignee').value.trim(),
+    维修部件: document.getElementById('part').value.trim(),
+    问题类型: document.getElementById('problemType').value,
+    损坏原因: document.getElementById('damageReason').value.trim(),
+    现场图片: uploadedImageData,
+    维修说明: document.getElementById('diagnosis').value.trim(),
+    维修耗时: document.getElementById('repairHours').value,
+    维修费用: document.getElementById('repairCost').value,
+    耗材费用: document.getElementById('materialCost').value,
+    signature: getSignature(),
+    status: selectedStatus,
+    createdAt: editId
+      ? orders.find(o => o.id === editId)?.createdAt || new Date().toISOString()
+      : new Date().toISOString()
+  };
+
+  if (editId) {
+    const idx = orders.findIndex(o => o.id === editId);
+    if (idx >= 0) orders[idx] = order;
+  } else {
+    orders.unshift(order);
+  }
+
+  saveOrders(orders);
+  closeForm();
+  renderAll();
+}
+
+// ==================== 工单操作 ====================
+let pendingDeleteId = null;
+
+function deleteOrder(id) {
+  pendingDeleteId = id;
+  document.getElementById('confirmOverlay').classList.add('active');
+}
+
+function confirmDelete() {
+  if (!pendingDeleteId) return;
+  orders = orders.filter(o => o.id !== pendingDeleteId);
+  saveOrders(orders);
+  renderAll();
+  closeDetail();
+  closeConfirm();
+}
+
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('active');
+  pendingDeleteId = null;
+}
+
+function toggleStatus(id) {
+  const order = orders.find(o => o.id === id);
+  if (!order) return;
+  order.status = order.status === '已完成' ? '待办' : '已完成';
+  saveOrders(orders);
+  renderAll();
+  closeDetail();
+}
+
+// ==================== 渲染 ====================
+function formatDate(iso) {
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function renderCards(list, containerId) {
+  const container = document.getElementById(containerId);
+  if (list.length === 0) {
+    container.innerHTML = '<div class="empty-hint">暂无工单</div>';
+    return;
+  }
+  container.innerHTML = list.map(o => `
+    <div class="card ${o.status === '已完成' ? 'done' : 'pending'}" onclick="openDetail('${o.id}')">
+      <div class="card-row">
+        <div class="card-info">
+          <div class="name">🔧 ${o.维修部件}</div>
+          <div class="part">委托人：${o.委托人} <span style="margin-left:8px;font-size:11px;background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:4px;">${o.问题类型 || ''}</span></div>
+          <div class="meta">${formatDate(o.createdAt)}</div>
+        </div>
+        <div class="card-actions" onclick="event.stopPropagation()">
+          <button class="btn-switch" onclick="toggleStatus('${o.id}')">
+            ${o.status === '已完成' ? '↩ 待办' : '✓ 完成'}
+          </button>
+          <button class="btn-delete" onclick="deleteOrder('${o.id}')">删除</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderAll() {
+  const pending = orders.filter(o => o.status === '待办');
+  const done = orders.filter(o => o.status === '已完成');
+
+  document.getElementById('pendingCount').textContent = pending.length;
+  document.getElementById('doneCount').textContent = done.length;
+  document.getElementById('pendingBadge').textContent = pending.length;
+  document.getElementById('doneBadge').textContent = done.length;
+
+  renderCards(pending, 'pendingList');
+  renderCards(done, 'doneList');
+}
+
+// ==================== 分区折叠 ====================
+function toggleSection(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+// ==================== 详情弹窗 ====================
+function openDetail(id) {
+  const order = orders.find(o => o.id === id);
+  if (!order) return;
+
+  document.getElementById('detailContent').innerHTML = `
+    <div class="modal-header">
+      <h3>工单详情</h3>
+      <button class="modal-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="detail-field">
+      <div class="df-label">状态</div>
+      <span class="detail-status ${order.status === '已完成' ? 'done' : 'pending'}">${order.status}</span>
+    </div>
+    <div class="detail-field">
+      <div class="df-label">委托人</div>
+      <div class="df-value">${order.委托人}</div>
+    </div>
+    <div class="detail-field">
+      <div class="df-label">被委托人</div>
+      <div class="df-value">${order.被委托人}</div>
+    </div>
+    <div class="detail-field">
+      <div class="df-label">维修部件</div>
+      <div class="df-value">${order.维修部件}</div>
+    </div>
+    <div class="detail-field">
+      <div class="df-label">问题类型</div>
+      <div class="df-value"><span style="display:inline-block;background:#e3f2fd;color:#1565c0;padding:2px 10px;border-radius:6px;font-size:13px;">${order.问题类型 || '未设置'}</span></div>
+    </div>
+    <div class="detail-field">
+      <div class="df-label">损坏原因</div>
+      <div class="df-value">${order.损坏原因}</div>
+    </div>
+    <div class="detail-field">
+      <div class="df-label">现场图片</div>
+      ${order.现场图片
+        ? '<img src="' + order.现场图片 + '" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #eee;">'
+        : '<div style="color:#ccc;font-size:13px;">无图片</div>'}
+    </div>
+    <div class="detail-field">
+      <div class="df-label">维修说明</div>
+      <div class="df-value">${order.维修说明 || order.诊断结果 || '无'}</div>
+    </div>
+    <div class="detail-field">
+      <div class="df-label">费用明细</div>
+      <div class="df-value">
+        耗时：${order.维修耗时 || '--'} h &nbsp;|&nbsp;
+        维修费：${order.维修费用 ? '¥' + order.维修费用 : '--'} &nbsp;|&nbsp;
+        耗材费：${order.耗材费用 ? '¥' + order.耗材费用 : '--'}
+      </div>
+    </div>
+    <div class="detail-field">
+      <div class="df-label">签名</div>
+      <div class="detail-sig">
+        ${order.signature ? '<img src="' + order.signature + '" alt="签名">' : '<span style="color:#ccc;font-size:13px;">无签名</span>'}
+      </div>
+    </div>
+    <div class="detail-field">
+      <div class="df-label">创建时间</div>
+      <div class="df-value">${formatDate(order.createdAt)}</div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn-switch" style="background:#2196f3;color:#fff;border:none;padding:12px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;flex:1;"
+        onclick="toggleStatus('${order.id}')">
+        ${order.status === '已完成' ? '↩ 移回待办' : '✓ 标记完成'}
+      </button>
+      <button type="button" class="btn-delete" style="background:#f44336;color:#fff;border:none;padding:12px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;flex:1;"
+        onclick="deleteOrder('${order.id}')">删除工单</button>
+    </div>
+  `;
+  document.getElementById('detailOverlay').classList.add('active');
+}
+
+function closeDetail() {
+  document.getElementById('detailOverlay').classList.remove('active');
+}
+
+// ==================== 初始化 ====================
+initSignature();
+renderAll();
+</script>
+
+</body>
+</html>
